@@ -1,0 +1,25 @@
+# Flutter
+ai_policy_application/.dart_tool/
+ai_policy_application/.flutter-plugins
+ai_policy_application/.flutter-plugins-dependencies
+ai_policy_application/.packages
+ai_policy_application/build/
+ai_policy_application/.idea/
+ai_policy_application/*.iml
+ai_policy_application/android/.gradle/
+ai_policy_application/android/app/build/
+ai_policy_application/ios/Pods/
+ai_policy_application/ios/.symlinks/
+ai_policy_application/.vscode/
+
+# Backend
+policyai-backend/venv/
+policyai-backend/__pycache__/
+policyai-backend/**/__pycache__/
+policyai-backend/*.pyc
+policyai-backend/.env
+policyai-backend/.venv/
+
+# OS
+.DS_Store
+Thumbs.db
