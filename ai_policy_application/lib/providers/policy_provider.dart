@@ -1,7 +1,11 @@
 import 'package:flutter/foundation.dart';
 import '../models/policy.dart';
+import '../data/services/api_service.dart';
 
 class PolicyProvider with ChangeNotifier {
+  final ApiService _api = ApiService();
+  
+  // Mock data as fallback
   List<Policy> _allPolicies = [
     Policy(
       id: '1',
@@ -78,6 +82,13 @@ class PolicyProvider with ChangeNotifier {
   ];
 
   String _searchQuery = '';
+  bool _isLoading = false;
+  String? _error;
+  bool _useBackend = false;  // Toggle between mock and backend
+
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+  bool get useBackend => _useBackend;
 
   List<Policy> get policies {
     if (_searchQuery.isEmpty) {
@@ -113,5 +124,77 @@ class PolicyProvider with ChangeNotifier {
     } catch (e) {
       return null;
     }
+  }
+
+  // ========== BACKEND INTEGRATION ==========
+
+  /// Fetch policies from backend
+  Future<void> fetchPoliciesFromBackend() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final data = await _api.getPolicies();
+      
+      _allPolicies = data.map((json) => Policy(
+        id: json['id'].toString(),
+        title: json['title'],
+        description: json['description'],
+        category: json['category'],
+        supportPercentage: json['support_percentage'],
+        opposePercentage: json['oppose_percentage'],
+        totalVotes: json['total_votes'].toString(),
+        timeLeft: json['time_left'],
+        createdAt: DateTime.now(),  // Can parse from json if available
+      )).toList();
+      
+      _useBackend = true;
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      _isLoading = false;
+      _useBackend = false;  // Fall back to mock data
+      notifyListeners();
+      
+      if (kDebugMode) {
+        print('Error fetching from backend: $e');
+        print('Using mock data as fallback');
+      }
+    }
+  }
+
+  /// Vote on a policy (backend)
+  Future<void> voteOnPolicy(String policyId, String stance) async {
+    if (!_useBackend) {
+      if (kDebugMode) {
+        print('Backend not available, vote not saved');
+      }
+      return;
+    }
+
+    try {
+      await _api.vote(int.parse(policyId), stance);
+      
+      // Refresh policies to get updated vote counts
+      await fetchPoliciesFromBackend();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      
+      if (kDebugMode) {
+        print('Error voting: $e');
+      }
+    }
+  }
+
+  /// Switch between mock and backend data
+  void toggleDataSource(bool useBackend) {
+    _useBackend = useBackend;
+    if (useBackend) {
+      fetchPoliciesFromBackend();
+    }
+    notifyListeners();
   }
 }

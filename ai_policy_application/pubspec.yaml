@@ -38,10 +38,9 @@ dependencies:
   provider: ^6.1.2            # For Auth/Policy providers [file:1]
 
   # HTTP client (for Phase 2+ APIs, safe to add now)
-  dio: ^5.4.0                 # With interceptors later [file:1]
-
-  # Local storage (needed now for fake login + votes)
-  shared_preferences: ^2.2.2  # Store login + vote history [file:1]
+  dio: ^5.4.0                          # HTTP client
+  shared_preferences: ^2.2.0            # Store token
+  google_sign_in: ^6.2.0                # Google authentication
   hive: ^2.2.3                # For caching later
   hive_flutter: ^1.1.0
   fl_chart: ^1.1.1

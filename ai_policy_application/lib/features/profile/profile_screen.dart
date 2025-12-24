@@ -5,6 +5,7 @@ import '../../data/models/vote.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/vote_provider.dart';
 import '../../providers/policy_provider.dart';
+import '../../features/auth/login/login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -17,7 +18,7 @@ class ProfileScreen extends StatelessWidget {
         slivers: [
           // Profile Header
           SliverAppBar(
-            expandedHeight: 200,
+            expandedHeight: 240,
             pinned: true,
             elevation: 0,
             backgroundColor: Colors.white,
@@ -39,33 +40,90 @@ class ProfileScreen extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          // Avatar
                           Container(
-                            padding: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
                               shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                                width: 3,
+                              ),
                             ),
-                            child: const Icon(
-                              Icons.person,
-                              size: 48,
-                              color: Colors.white,
+                            child: CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Colors.white,
+                              backgroundImage: auth.avatarUrl != null
+                                  ? NetworkImage(auth.avatarUrl!)
+                                  : null,
+                              child: auth.avatarUrl == null
+                                  ? Icon(
+                                      Icons.person,
+                                      size: 40,
+                                      color: AppTheme.primaryPurple,
+                                    )
+                                  : null,
                             ),
                           ),
                           const SizedBox(height: 16),
+                          
+                          // Name
                           Text(
-                            auth.phoneNumber ?? 'Guest User',
+                            auth.displayName,
                             style: const TextStyle(
-                              fontSize: 20,
+                              fontSize: 22,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Citizen Voter',
-                            style: TextStyle(
-                              fontSize: 13,
+                          const SizedBox(height: 6),
+                          
+                          // Email
+                          Text(
+                            auth.displayEmail,
+                            style: const TextStyle(
+                              fontSize: 14,
                               color: Colors.white70,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          
+                          // Auth Provider Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  auth.authProvider == 'google'
+                                      ? Icons.g_mobiledata
+                                      : Icons.email_outlined,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  auth.authProvider == 'google'
+                                      ? 'Google Account'
+                                      : 'Email Account',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -145,6 +203,96 @@ class ProfileScreen extends StatelessWidget {
               },
             ),
           ),
+
+          // Account Settings Section
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.settings_outlined,
+                    color: AppTheme.textDark,
+                    size: 20,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Account Settings',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textDark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Settings Options
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    _buildSettingsTile(
+                      icon: Icons.person_outline,
+                      title: 'Edit Profile',
+                      subtitle: 'Update your name and photo',
+                      onTap: () {
+                        // TODO: Navigate to edit profile screen
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Coming soon in Phase 3'),
+                          ),
+                        );
+                      },
+                    ),
+                    Divider(height: 1, color: Colors.grey.shade200),
+                    _buildSettingsTile(
+                      icon: Icons.notifications_outlined,
+                      title: 'Notifications',
+                      subtitle: 'Manage notification preferences',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Coming soon in Phase 3'),
+                          ),
+                        );
+                      },
+                    ),
+                    Divider(height: 1, color: Colors.grey.shade200),
+                    _buildSettingsTile(
+                      icon: Icons.privacy_tip_outlined,
+                      title: 'Privacy',
+                      subtitle: 'Privacy and data settings',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Coming soon in Phase 3'),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
           // Voting History Header
           const SliverToBoxAdapter(
@@ -274,11 +422,13 @@ class ProfileScreen extends StatelessWidget {
 
                           if (confirm == true) {
                             await voteProvider.clearAllVotes();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Vote history cleared'),
-                              ),
-                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Vote history cleared'),
+                                ),
+                              );
+                            }
                           }
                         },
                         icon: const Icon(Icons.delete_outline),
@@ -295,6 +445,9 @@ class ProfileScreen extends StatelessWidget {
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (context) => AlertDialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                               title: const Text('Logout'),
                               content: const Text(
                                 'Are you sure you want to logout?',
@@ -304,20 +457,23 @@ class ProfileScreen extends StatelessWidget {
                                   onPressed: () => Navigator.pop(context, false),
                                   child: const Text('Cancel'),
                                 ),
-                                TextButton(
+                                ElevatedButton(
                                   onPressed: () => Navigator.pop(context, true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryPurple,
+                                  ),
                                   child: const Text('Logout'),
                                 ),
                               ],
                             ),
                           );
 
-                          if (confirm == true) {
+                          if (confirm == true && context.mounted) {
                             await auth.logout();
-                            // Navigate back to login/splash
+                            // Navigate back to login
                             Navigator.of(context).pushAndRemoveUntil(
                               MaterialPageRoute(
-                                builder: (_) => const SizedBox(), // Replace with your LoginScreen
+                                builder: (_) => const LoginScreen(),
                               ),
                               (route) => false,
                             );
@@ -340,6 +496,44 @@ class ProfileScreen extends StatelessWidget {
 
           const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      onTap: onTap,
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryPurple.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: AppTheme.primaryPurple, size: 20),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textDark,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(
+          fontSize: 12,
+          color: AppTheme.textLight,
+        ),
+      ),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: Colors.grey.shade400,
       ),
     );
   }
