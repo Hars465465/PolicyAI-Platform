@@ -6,11 +6,12 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
-  // Change this to your Railway URL when deployed
-  // For now, use local backend
-  static const String baseUrl = 'http://192.168.1.15:8000/api';  // real device
+  // ✅ UPDATED: Railway Production URL
+  static const String baseUrl = 'https://policyai-platform-production.up.railway.app/api';
+  
+  // For local testing (comment out when deploying)
+  // static const String baseUrl = 'http://192.168.1.15:8000/api';  // real device
   // static const String baseUrl = 'http://localhost:8000/api';  // iOS Simulator
-  // static const String baseUrl = 'https://your-app.railway.app/api';  // Production
 
   late Dio dio;
 

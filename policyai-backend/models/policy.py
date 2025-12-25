@@ -3,6 +3,10 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
 import enum
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
 
 class PolicyCategory(str, enum.Enum):
     EDUCATION = "Education"
