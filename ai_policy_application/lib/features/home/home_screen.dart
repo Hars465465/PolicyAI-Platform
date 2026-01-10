@@ -193,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 6),
                         Text(
                           policyProvider.useBackend ? 'LIVE' : 'OFFLINE',
                           style: TextStyle(
@@ -348,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
 
-              // Hero Stats Banner
+              // ✅ UPDATED: Hero Stats Banner - Fixed LIVE Badge Alignment
               SliverToBoxAdapter(
                 child: Container(
                   margin: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -373,8 +373,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                   child: Column(
                     children: [
+                      // ✅ FIXED: Proper Row alignment for LIVE badge
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,  // ✅ ADD THIS
                         children: [
+                          // Left side - Icon + Text
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -413,29 +416,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               ],
                             ),
                           ),
+                          const SizedBox(width: 12),  // ✅ ADD THIS
+                          // ✅ FIXED: Right side - LIVE badge
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
-                              vertical: 8,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
                               color: policyProvider.useBackend 
                                 ? AppTheme.successGreen
                                 : Colors.orange,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
+                                  color: (policyProvider.useBackend 
+                                    ? AppTheme.successGreen
+                                    : Colors.orange).withOpacity(0.4),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
-                                  width: 6,
-                                  height: 6,
+                                  width: 8,
+                                  height: 8,
                                   decoration: const BoxDecoration(
                                     color: Colors.white,
                                     shape: BoxShape.circle,
@@ -446,7 +454,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   policyProvider.useBackend ? 'LIVE' : 'OFFLINE',
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 0.5,
                                   ),

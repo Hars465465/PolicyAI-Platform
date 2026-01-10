@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/themes/app_theme.dart';
 import '../../providers/auth_provider.dart';
-import '../../features/auth/login/login_screen.dart';
+import '../../features/auth/login/login_screen.dart';  // ✅ Fixed path
 import '../home/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -42,15 +42,17 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _navigateToNextScreen() async {
+    // ✅ First, load auth state from storage
+    final authProvider = context.read<AuthProvider>();
+    await authProvider.loadAuthState();
+
     // Wait for animation to complete
     await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
 
-    // Check login status
-    final authProvider = context.read<AuthProvider>();
-    
-    if (authProvider.isLoggedIn) {
+    // ✅ Check if user is authenticated
+    if (authProvider.isAuthenticated) {
       // User logged in → Go to Home
       Navigator.pushReplacement(
         context,
@@ -107,7 +109,7 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ],
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.how_to_vote_rounded,
                       size: 60,
                       color: AppTheme.primaryPurple,
@@ -131,6 +133,12 @@ class _SplashScreenState extends State<SplashScreen>
                       color: Colors.white70,
                       letterSpacing: 0.5,
                     ),
+                  ),
+                  const SizedBox(height: 40),
+                  // ✅ Loading indicator
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    strokeWidth: 2,
                   ),
                 ],
               ),

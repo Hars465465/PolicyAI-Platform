@@ -1,24 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
 import '../../../core/themes/app_theme.dart';
 import '../../../models/policy.dart';
+import '../../../providers/policy_provider.dart';
+import '../../home/widgets/comments_bottom_sheet.dart';
+
 
 class PolicyDetailsScreen extends StatefulWidget {
   final Policy policy;
+
 
   const PolicyDetailsScreen({
     super.key,
     required this.policy,
   });
 
+
   @override
   State<PolicyDetailsScreen> createState() => _PolicyDetailsScreenState();
 }
 
+
 class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     with SingleTickerProviderStateMixin {
-  bool? _userVote;
+  String? _userVote; // 'support', 'oppose', 'neutral', or null
+  bool _hasVoted = false;
+  bool _isVoting = false;
+  Map<String, dynamic>? _voteResults;
   late AnimationController _buttonAnimationController;
+
 
   @override
   void initState() {
@@ -27,7 +38,9 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
+    _loadVoteData();
   }
+
 
   @override
   void dispose() {
@@ -35,40 +48,205 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     super.dispose();
   }
 
-  void _handleVote(bool isSupport) {
-    // Force rebuild to show the selected state
-    setState(() {
-      _userVote = isSupport;
-    });
+  // ✅ Load vote status and results
+  Future<void> _loadVoteData() async {
+    final provider = context.read<PolicyProvider>();
     
-    _buttonAnimationController.forward().then((_) {
-      _buttonAnimationController.reverse();
-    });
+    // Check if backend is available
+    if (!provider.useBackend) {
+      debugPrint('⚠️ Backend not available for voting');
+      return;
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isSupport ? Icons.thumb_up : Icons.thumb_down,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 12),
-            Text(isSupport ? 'You support this policy!' : 'You oppose this policy!'),
-          ],
-        ),
-        backgroundColor: isSupport ? AppTheme.successGreen : AppTheme.warningRed,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    // Check if user already voted
+    final myVote = await provider.checkMyVote(widget.policy.id);
+    
+    // Get current results
+    final results = await provider.getVoteResults(widget.policy.id);
+    
+    if (mounted) {
+      setState(() {
+        _hasVoted = myVote['voted'] ?? false;
+        _userVote = myVote['stance'];
+        _voteResults = results;
+      });
+    }
   }
+
+  // ✅ Handle vote submission with WITHDRAWAL support
+  Future<void> _handleVote(String stance) async {
+    if (_isVoting) return;
+
+    final provider = context.read<PolicyProvider>();
+
+    // ✅ WITHDRAW VOTE: If clicking same button again
+    if (_hasVoted && _userVote == stance) {
+      setState(() => _isVoting = true);
+
+      try {
+        await provider.withdrawVote(widget.policy.id);
+
+        if (mounted) {
+          setState(() {
+            _hasVoted = false;
+            _userVote = null;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: const [
+                  Icon(Icons.undo, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Vote withdrawn!'),
+                ],
+              ),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+
+          await _loadVoteData();
+          
+          // ✅ Refresh home screen
+          provider.fetchPoliciesFromBackend();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ Error: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isVoting = false);
+        }
+      }
+      return;
+    }
+
+    // ✅ CAST NEW VOTE or CHANGE VOTE
+    setState(() => _isVoting = true);
+
+    try {
+      await provider.voteOnPolicy(widget.policy.id, stance);
+
+      if (mounted) {
+        setState(() {
+          _hasVoted = true;
+          _userVote = stance;
+        });
+
+        _buttonAnimationController.forward().then((_) {
+          _buttonAnimationController.reverse();
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  _getStanceIcon(stance),
+                  color: Colors.white,
+                ),
+                const SizedBox(width: 12),
+                Text(_hasVoted && _userVote != stance
+                    ? 'Vote changed to ${_getStanceLabel(stance)}!'
+                    : 'Vote submitted: ${_getStanceLabel(stance)}!'),
+              ],
+            ),
+            backgroundColor: _getStanceColor(stance),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+
+        await _loadVoteData();
+        
+        // ✅ Refresh home screen policies
+        provider.fetchPoliciesFromBackend();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isVoting = false);
+      }
+    }
+  }
+
+  String _getStanceLabel(String stance) {
+    switch (stance) {
+      case 'support':
+        return 'Support';
+      case 'oppose':
+        return 'Oppose';
+      case 'neutral':
+        return 'Neutral';
+      default:
+        return stance;
+    }
+  }
+
+  Color _getStanceColor(String stance) {
+    switch (stance) {
+      case 'support':
+        return AppTheme.successGreen;
+      case 'oppose':
+        return AppTheme.warningRed;
+      case 'neutral':
+        return AppTheme.warningOrange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getStanceIcon(String stance) {
+    switch (stance) {
+      case 'support':
+        return Icons.thumb_up;
+      case 'oppose':
+        return Icons.thumb_down;
+      case 'neutral':
+        return Icons.remove_circle_outline;
+      default:
+        return Icons.circle;
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
+    // ✅ Use backend results if available
+    final displaySupportPct = _voteResults != null 
+        ? (_voteResults!['support_percentage'] ?? widget.policy.supportPercentage)
+        : widget.policy.supportPercentage;
+    
+    final displayOpposePct = _voteResults != null
+        ? (_voteResults!['oppose_percentage'] ?? widget.policy.opposePercentage)
+        : widget.policy.opposePercentage;
+    
+    final displayTotalVotes = _voteResults != null
+        ? (_voteResults!['total_votes']?.toString() ?? widget.policy.totalVotes)
+        : widget.policy.totalVotes;
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: CustomScrollView(
@@ -94,7 +272,10 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
                   color: AppTheme.textDark,
                 ),
               ),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                // ✅ Refresh home screen when going back
+                Navigator.pop(context, true);
+              },
             ),
             actions: [
               IconButton(
@@ -146,7 +327,8 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
             ),
           ),
 
-          // Voting Results Chart (First Card)
+
+          // Voting Results Chart
           SliverToBoxAdapter(
             child: Container(
               margin: const EdgeInsets.all(20),
@@ -212,7 +394,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _buildPollChart(),
+                  _buildPollChart(displaySupportPct, displayOpposePct),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -224,7 +406,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '${widget.policy.totalVotes} total votes',
+                        '$displayTotalVotes total votes',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -237,6 +419,41 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
               ),
             ),
           ),
+
+
+          // Comments Button
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => CommentsBottomSheet(
+                      policyId: int.parse(widget.policy.id),
+                      policyTitle: widget.policy.title,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.comment_outlined, size: 18),
+                label: const Text('Comments'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryPurple,
+                  side: const BorderSide(color: AppTheme.primaryPurple),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
 
           // Description Section
           SliverToBoxAdapter(
@@ -271,6 +488,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
               ),
             ),
           ),
+
 
           // AI Summary Section
           SliverToBoxAdapter(
@@ -385,6 +603,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
             ),
           ),
 
+
           // Impact Section
           SliverToBoxAdapter(
             child: Container(
@@ -431,11 +650,13 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
             ),
           ),
 
+
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
 
-      // Fixed Bottom Voting Buttons
+
+      // ✅ UPDATED: Fixed Bottom Voting Buttons with WITHDRAWAL
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -449,73 +670,12 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
           ],
         ),
         child: SafeArea(
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  child: ElevatedButton.icon(
-                    onPressed: () => _handleVote(false),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _userVote == false ? AppTheme.warningRed : Colors.white,
-                      foregroundColor: _userVote == false ? Colors.white : AppTheme.warningRed,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: AppTheme.warningRed,
-                          width: 2,
-                        ),
-                      ),
-                      elevation: _userVote == false ? 4 : 0,
-                    ),
-                    icon: Icon(
-                      _userVote == false ? Icons.check_circle : Icons.thumb_down_outlined,
-                      size: 20,
-                    ),
-                    label: Text(
-                      _userVote == false ? 'Opposed' : 'Oppose',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  child: ElevatedButton.icon(
-                    onPressed: () => _handleVote(true),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _userVote == true ? AppTheme.successGreen : Colors.white,
-                      foregroundColor: _userVote == true ? Colors.white : AppTheme.successGreen,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: AppTheme.successGreen,
-                          width: 2,
-                        ),
-                      ),
-                      elevation: _userVote == true ? 4 : 0,
-                    ),
-                    icon: Icon(
-                      _userVote == true ? Icons.check_circle : Icons.thumb_up_outlined,
-                      size: 20,
-                    ),
-                    label: Text(
-                      _userVote == true ? 'Supported' : 'Support',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              if (_hasVoted) _buildVotedIndicator(),
+              if (_hasVoted) const SizedBox(height: 12),
+              _buildVotingButtons(),
             ],
           ),
         ),
@@ -523,7 +683,128 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     );
   }
 
-  Widget _buildPollChart() {
+  // ✅ Show which vote user cast (with hint to click again to withdraw)
+  Widget _buildVotedIndicator() {
+    final color = _getStanceColor(_userVote ?? 'neutral');
+    final label = _getStanceLabel(_userVote ?? 'neutral');
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color, width: 1.5),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle, color: color, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            'You voted: $label',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '(Click again to withdraw)',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade600,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Voting buttons (highlight current vote)
+  Widget _buildVotingButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildVoteButton(
+            'Oppose',
+            'oppose',
+            AppTheme.warningRed,
+            Icons.thumb_down_outlined,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildVoteButton(
+            'Neutral',
+            'neutral',
+            AppTheme.warningOrange,
+            Icons.remove_circle_outline,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildVoteButton(
+            'Support',
+            'support',
+            AppTheme.successGreen,
+            Icons.thumb_up_outlined,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVoteButton(String label, String stance, Color color, IconData icon) {
+    final isSelected = _hasVoted && _userVote == stance;
+    
+    return ElevatedButton(
+      onPressed: _isVoting ? null : () => _handleVote(stance),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isSelected ? color : Colors.white,
+        foregroundColor: isSelected ? Colors.white : color,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: color, width: 2),
+        ),
+        elevation: isSelected ? 4 : 0,
+      ),
+      child: _isVoting
+          ? SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(
+                color: isSelected ? Colors.white : color,
+                strokeWidth: 2,
+              ),
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isSelected ? Icons.check_circle : icon,
+                  size: 20,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+
+  Widget _buildPollChart(int supportPct, int opposePct) {
+    final neutralPct = _voteResults != null 
+      ? (_voteResults!['neutral_percentage'] ?? 0)
+      : 100 - supportPct - opposePct;
     return SizedBox(
       height: 180,
       child: Row(
@@ -536,8 +817,8 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
                 centerSpaceRadius: 35,
                 sections: [
                   PieChartSectionData(
-                    value: widget.policy.supportPercentage.toDouble(),
-                    title: '${widget.policy.supportPercentage}%',
+                    value: supportPct.toDouble(),
+                    title: '$supportPct%',
                     color: AppTheme.successGreen,
                     radius: 45,
                     titleStyle: const TextStyle(
@@ -547,9 +828,20 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
                     ),
                   ),
                   PieChartSectionData(
-                    value: widget.policy.opposePercentage.toDouble(),
-                    title: '${widget.policy.opposePercentage}%',
+                    value: opposePct.toDouble(),
+                    title: '$opposePct%',
                     color: AppTheme.warningRed,
+                    radius: 45,
+                    titleStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  PieChartSectionData(
+                    value: neutralPct.toDouble(),
+                    title: '$neutralPct%',
+                    color: AppTheme.warningOrange,
                     radius: 45,
                     titleStyle: const TextStyle(
                       fontSize: 14,
@@ -568,9 +860,14 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildLegendItem('Support', AppTheme.successGreen, widget.policy.supportPercentage),
+                _buildLegendItem('Support', AppTheme.successGreen, supportPct),
                 const SizedBox(height: 16),
-                _buildLegendItem('Oppose', AppTheme.warningRed, widget.policy.opposePercentage),
+                _buildLegendItem('Oppose', AppTheme.warningRed, opposePct),
+                const SizedBox(height: 16),
+                if (neutralPct > 0) ...[
+                const SizedBox(height: 12),
+                _buildLegendItem('Neutral', AppTheme.warningOrange, neutralPct),
+              ],
               ],
             ),
           ),
@@ -578,6 +875,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
       ),
     );
   }
+
 
   Widget _buildLegendItem(String label, Color color, int percentage) {
     return Row(
@@ -617,6 +915,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
       ],
     );
   }
+
 
   Widget _buildAISection(String title, IconData icon, Color color, List<String> items) {
     return Column(
@@ -662,6 +961,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     );
   }
 
+
   Widget _buildImpactItem(IconData icon, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -674,6 +974,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
       ),
     );
   }
+
 
   List<String> _getMockPros() {
     switch (widget.policy.category) {
@@ -698,6 +999,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     }
   }
 
+
   List<String> _getMockCons() {
     switch (widget.policy.category) {
       case 'Education':
@@ -718,6 +1020,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     }
   }
 
+
   List<String> _getMockRisks() {
     return [
       'Delays in rollout timeline',
@@ -725,6 +1028,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
       'Regional implementation gaps',
     ];
   }
+
 
   String _getMockBudget() {
     switch (widget.policy.category) {
@@ -738,6 +1042,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
         return '₹10,000 Crore';
     }
   }
+
 
   Color _getCategoryColor() {
     switch (widget.policy.category.toLowerCase()) {

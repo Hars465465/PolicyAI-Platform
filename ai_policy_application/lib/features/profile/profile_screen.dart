@@ -1,14 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/themes/app_theme.dart';
-import '../../data/models/vote.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/vote_provider.dart';
-import '../../providers/policy_provider.dart';
+import '../../providers/user_provider.dart';  // ✅ CHANGED: Import UserProvider
 import '../../features/auth/login/login_screen.dart';
+import '../../features/profile/widgets/profile_edit_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {  // ✅ CHANGED: StatefulWidget for lifecycle
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Load data on screen open
+    Future.microtask(() {
+      context.read<UserProvider>().refreshAll();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,8 +47,10 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                child: Consumer<AuthProvider>(
-                  builder: (context, auth, _) {
+                child: Consumer2<AuthProvider, UserProvider>(  // ✅ CHANGED: Added UserProvider
+                  builder: (context, auth, userProvider, _) {
+                    final displayName = userProvider.userName ?? auth.displayName;
+                    
                     return SafeArea(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -70,7 +85,7 @@ class ProfileScreen extends StatelessWidget {
                           
                           // Name
                           Text(
-                            auth.displayName,
+                            displayName,
                             style: const TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
@@ -135,10 +150,19 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
 
-          // Stats Cards
+          // ✅ CHANGED: Stats Cards - Using UserProvider instead of VoteProvider
           SliverToBoxAdapter(
-            child: Consumer<VoteProvider>(
-              builder: (context, voteProvider, _) {
+            child: Consumer<UserProvider>(
+              builder: (context, userProvider, _) {
+                if (userProvider.isLoading && userProvider.totalVotes == 0) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+
                 return Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
@@ -149,7 +173,7 @@ class ProfileScreen extends StatelessWidget {
                           Expanded(
                             child: _buildStatCard(
                               'Total Votes',
-                              voteProvider.totalVotes.toString(),
+                              userProvider.totalVotes.toString(),
                               Icons.how_to_vote,
                               AppTheme.primaryPurple,
                             ),
@@ -158,7 +182,7 @@ class ProfileScreen extends StatelessWidget {
                           Expanded(
                             child: _buildStatCard(
                               'Points',
-                              '${voteProvider.totalVotes * 10}',
+                              userProvider.points.toString(),
                               Icons.stars,
                               Colors.amber.shade700,
                             ),
@@ -172,7 +196,7 @@ class ProfileScreen extends StatelessWidget {
                           Expanded(
                             child: _buildStatCard(
                               'Support',
-                              voteProvider.supportCount.toString(),
+                              userProvider.supportCount.toString(),
                               Icons.thumb_up,
                               AppTheme.successGreen,
                             ),
@@ -181,7 +205,7 @@ class ProfileScreen extends StatelessWidget {
                           Expanded(
                             child: _buildStatCard(
                               'Neutral',
-                              voteProvider.neutralCount.toString(),
+                              userProvider.neutralCount.toString(),
                               Icons.horizontal_rule,
                               Colors.grey.shade600,
                             ),
@@ -190,7 +214,7 @@ class ProfileScreen extends StatelessWidget {
                           Expanded(
                             child: _buildStatCard(
                               'Oppose',
-                              voteProvider.opposeCount.toString(),
+                              userProvider.opposeCount.toString(),
                               Icons.thumb_down,
                               Colors.red.shade600,
                             ),
@@ -250,14 +274,32 @@ class ProfileScreen extends StatelessWidget {
                     _buildSettingsTile(
                       icon: Icons.person_outline,
                       title: 'Edit Profile',
-                      subtitle: 'Update your name and photo',
-                      onTap: () {
-                        // TODO: Navigate to edit profile screen
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Coming soon in Phase 3'),
+                      subtitle: 'Update your name and bio',
+                      onTap: () async {
+                        final userProvider = context.read<UserProvider>();
+                        
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ProfileEditScreen(
+                              currentName: userProvider.userName ?? 'User',
+                              currentBio: '',
+                            ),
                           ),
                         );
+                        
+                        if (result == true && context.mounted) {
+                          // Refresh user data
+                          await userProvider.refreshAll();
+                          
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Profile updated! 🎉'),
+                              backgroundColor: AppTheme.successGreen,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
                       },
                     ),
                     Divider(height: 1, color: Colors.grey.shade200),
@@ -295,18 +337,18 @@ class ProfileScreen extends StatelessWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
           // Voting History Header
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(20, 8, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.history,
                     color: AppTheme.textDark,
                     size: 20,
                   ),
-                  SizedBox(width: 8),
-                  Text(
+                  const SizedBox(width: 8),
+                  const Text(
                     'Voting History',
                     style: TextStyle(
                       fontSize: 18,
@@ -314,15 +356,32 @@ class ProfileScreen extends StatelessWidget {
                       color: AppTheme.textDark,
                     ),
                   ),
+                  const Spacer(),
+                  // ✅ ADDED: Refresh button
+                  IconButton(
+                    icon: const Icon(Icons.refresh, size: 20),
+                    onPressed: () {
+                      context.read<UserProvider>().refreshAll();
+                    },
+                    tooltip: 'Refresh',
+                  ),
                 ],
               ),
             ),
           ),
 
-          // Voting History List
-          Consumer2<VoteProvider, PolicyProvider>(
-            builder: (context, voteProvider, policyProvider, _) {
-              if (voteProvider.totalVotes == 0) {
+          // ✅ CHANGED: Voting History List - Using UserProvider
+          Consumer<UserProvider>(
+            builder: (context, userProvider, _) {
+              if (userProvider.isLoading && userProvider.votingHistory.isEmpty) {
+                return const SliverFillRemaining(
+                  child: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              if (userProvider.totalVotes == 0) {
                 return const SliverFillRemaining(
                   child: Center(
                     child: Column(
@@ -355,7 +414,7 @@ class ProfileScreen extends StatelessWidget {
                 );
               }
 
-              final votes = voteProvider.votes.values.toList().reversed.toList();
+              final votes = userProvider.votingHistory;
 
               return SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -363,17 +422,12 @@ class ProfileScreen extends StatelessWidget {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final vote = votes[index];
-                      final policy = policyProvider.getPolicyById(vote.policyId);
-
-                      if (policy == null) {
-                        return const SizedBox.shrink();
-                      }
-
+                      
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: _buildVoteHistoryCard(
-                          policy.title,
-                          policy.category,
+                        child: _buildVoteHistoryCardNew(
+                          vote.policyTitle,
+                          vote.category,
                           vote.stance,
                         ),
                       );
@@ -391,51 +445,24 @@ class ProfileScreen extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Consumer2<AuthProvider, VoteProvider>(
-                builder: (context, auth, voteProvider, _) {
+              child: Consumer<AuthProvider>(
+                builder: (context, auth, _) {
                   return Column(
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () async {
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Clear Vote History?'),
-                              content: const Text(
-                                'This will delete all your votes from this device.',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text(
-                                    'Clear',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                              ],
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Clear history not available with backend'),
+                              duration: Duration(seconds: 2),
                             ),
                           );
-
-                          if (confirm == true) {
-                            await voteProvider.clearAllVotes();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Vote history cleared'),
-                                ),
-                              );
-                            }
-                          }
                         },
                         icon: const Icon(Icons.delete_outline),
                         label: const Text('Clear Vote History'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
+                          foregroundColor: Colors.grey,
+                          side: BorderSide(color: Colors.grey.shade400),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                       ),
@@ -470,7 +497,6 @@ class ProfileScreen extends StatelessWidget {
 
                           if (confirm == true && context.mounted) {
                             await auth.logout();
-                            // Navigate back to login
                             Navigator.of(context).pushAndRemoveUntil(
                               MaterialPageRoute(
                                 builder: (_) => const LoginScreen(),
@@ -585,23 +611,27 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildVoteHistoryCard(String title, String category, VoteStance stance) {
+  // ✅ NEW: Updated vote history card using backend data
+  Widget _buildVoteHistoryCardNew(String title, String category, String stance) {
     Color stanceColor;
     IconData stanceIcon;
 
-    switch (stance) {
-      case VoteStance.support:
+    switch (stance.toLowerCase()) {
+      case 'support':
         stanceColor = AppTheme.successGreen;
         stanceIcon = Icons.thumb_up;
         break;
-      case VoteStance.neutral:
+      case 'neutral':
         stanceColor = Colors.grey.shade600;
         stanceIcon = Icons.horizontal_rule;
         break;
-      case VoteStance.oppose:
+      case 'oppose':
         stanceColor = Colors.red.shade600;
         stanceIcon = Icons.thumb_down;
         break;
+      default:
+        stanceColor = Colors.grey;
+        stanceIcon = Icons.circle;
     }
 
     return Container(
@@ -655,7 +685,7 @@ class ProfileScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              stance.name.toUpperCase(),
+              stance.toUpperCase(),
               style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,

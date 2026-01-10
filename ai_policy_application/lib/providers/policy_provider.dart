@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
-import '../models/policy.dart';
-import '../data/services/api_service.dart';
+import '../../models/policy.dart';
+import '../../data/services/api_service.dart';
+import '../../data/services/device_service.dart';
+
 
 class PolicyProvider with ChangeNotifier {
   final ApiService _api = ApiService();
@@ -10,8 +12,7 @@ class PolicyProvider with ChangeNotifier {
     Policy(
       id: '1',
       title: 'National Education Reform Act 2025',
-      description:
-          'Comprehensive education system overhaul focusing on digital literacy, skill development, and equal access to quality education across urban and rural areas.',
+      description: 'Comprehensive education system overhaul focusing on digital literacy, skill development, and equal access to quality education across urban and rural areas.',
       category: 'Education',
       supportPercentage: 68,
       opposePercentage: 32,
@@ -22,8 +23,7 @@ class PolicyProvider with ChangeNotifier {
     Policy(
       id: '2',
       title: 'Universal Healthcare Access Program',
-      description:
-          'Initiative to provide free primary healthcare services to all citizens through expanded public health infrastructure and telemedicine integration.',
+      description: 'Initiative to provide free primary healthcare services to all citizens through expanded public health infrastructure and telemedicine integration.',
       category: 'Healthcare',
       supportPercentage: 72,
       opposePercentage: 28,
@@ -34,8 +34,7 @@ class PolicyProvider with ChangeNotifier {
     Policy(
       id: '3',
       title: 'Green Energy Infrastructure Plan',
-      description:
-          'Nationwide transition to renewable energy sources with solar panel subsidies, wind farms, and electric vehicle charging network expansion.',
+      description: 'Nationwide transition to renewable energy sources with solar panel subsidies, wind farms, and electric vehicle charging network expansion.',
       category: 'Infrastructure',
       supportPercentage: 65,
       opposePercentage: 35,
@@ -46,8 +45,7 @@ class PolicyProvider with ChangeNotifier {
     Policy(
       id: '4',
       title: 'Digital India 2.0 Initiative',
-      description:
-          'Accelerate digital transformation with 5G rollout, cybersecurity framework, and digital skills training for 10 million citizens.',
+      description: 'Accelerate digital transformation with 5G rollout, cybersecurity framework, and digital skills training for 10 million citizens.',
       category: 'Technology',
       supportPercentage: 78,
       opposePercentage: 22,
@@ -58,8 +56,7 @@ class PolicyProvider with ChangeNotifier {
     Policy(
       id: '5',
       title: 'Agricultural Modernization Scheme',
-      description:
-          'Support farmers with modern equipment subsidies, direct market access platforms, and crop insurance reforms to boost rural income.',
+      description: 'Support farmers with modern equipment subsidies, direct market access platforms, and crop insurance reforms to boost rural income.',
       category: 'Agriculture',
       supportPercentage: 70,
       opposePercentage: 30,
@@ -70,8 +67,7 @@ class PolicyProvider with ChangeNotifier {
     Policy(
       id: '6',
       title: 'Urban Housing Development Act',
-      description:
-          'Affordable housing scheme with low-interest loans, rent control measures, and infrastructure development in tier-2 and tier-3 cities.',
+      description: 'Affordable housing scheme with low-interest loans, rent control measures, and infrastructure development in tier-2 and tier-3 cities.',
       category: 'Housing',
       supportPercentage: 63,
       opposePercentage: 37,
@@ -84,7 +80,7 @@ class PolicyProvider with ChangeNotifier {
   String _searchQuery = '';
   bool _isLoading = false;
   String? _error;
-  bool _useBackend = false;  // Toggle between mock and backend
+  bool _useBackend = false;
 
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -135,57 +131,177 @@ class PolicyProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      debugPrint('📥 Fetching policies from backend...');
+      
       final data = await _api.getPolicies();
       
-      _allPolicies = data.map((json) => Policy(
-        id: json['id'].toString(),
-        title: json['title'],
-        description: json['description'],
-        category: json['category'],
-        supportPercentage: json['support_percentage'],
-        opposePercentage: json['oppose_percentage'],
-        totalVotes: json['total_votes'].toString(),
-        timeLeft: json['time_left'],
-        createdAt: DateTime.now(),  // Can parse from json if available
-      )).toList();
+      debugPrint('✅ Received ${data.length} policies from backend');
       
-      _useBackend = true;
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      _useBackend = false;  // Fall back to mock data
-      notifyListeners();
-      
-      if (kDebugMode) {
-        print('Error fetching from backend: $e');
-        print('Using mock data as fallback');
+      if (data.isEmpty) {
+        debugPrint('⚠️  Backend returned empty array!');
+        debugPrint('⚠️  Keeping existing ${_allPolicies.length} mock policies');
+        
+        _useBackend = false;
+        _error = 'Backend has no policies';
+        
+      } else {
+        debugPrint('📦 Sample policy data: ${data[0]}');
+        
+        // ✅ FIX: Include neutral votes in calculation
+        _allPolicies = data.map<Policy>((json) {
+          final supportCount = (json['support_count'] as num?)?.toInt() ?? 0;
+          final opposeCount = (json['oppose_count'] as num?)?.toInt() ?? 0;
+          final neutralCount = (json['neutral_count'] as num?)?.toInt() ?? 0;
+          final totalVotes = supportCount + opposeCount + neutralCount;
+          
+          int supportPercentage;
+          int opposePercentage;
+          
+          if (totalVotes > 0) {
+            supportPercentage = ((supportCount / totalVotes) * 100).round();
+            opposePercentage = ((opposeCount / totalVotes) * 100).round();
+          } else {
+            supportPercentage = 50;
+            opposePercentage = 50;
+          }
+          
+          String formattedVotes;
+          if (totalVotes >= 1000000) {
+            formattedVotes = '${(totalVotes / 1000000).toStringAsFixed(1)}M';
+          } else if (totalVotes >= 1000) {
+            formattedVotes = '${(totalVotes / 1000).toStringAsFixed(1)}K';
+          } else {
+            formattedVotes = totalVotes.toString();
+          }
+          
+          return Policy(
+            id: json['id'].toString(),
+            title: json['title']?.toString() ?? 'Untitled Policy',
+            description: json['description']?.toString() ?? 'No description available',
+            category: json['category']?.toString() ?? 'General',
+            supportPercentage: supportPercentage,
+            opposePercentage: opposePercentage,
+            totalVotes: formattedVotes,
+            timeLeft: 'Active',
+            createdAt: json['created_at'] != null 
+                ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+                : DateTime.now(),
+          );
+        }).toList();
+        
+        _useBackend = true;
+        _error = null;
+        
+        debugPrint('✅ Successfully loaded ${_allPolicies.length} policies from backend');
+        debugPrint('🎯 Backend status: LIVE ✅');
       }
+      
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error fetching from backend: $e');
+      debugPrint('📍 Stack trace: $stackTrace');
+      
+      _error = e.toString();
+      _useBackend = false;
+      
+      debugPrint('⚠️  Fallback: Using ${_allPolicies.length} mock policies');
+      debugPrint('🎯 Backend status: OFFLINE ⚠️');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  /// Vote on a policy (backend)
+  /// Vote on a policy
   Future<void> voteOnPolicy(String policyId, String stance) async {
     if (!_useBackend) {
-      if (kDebugMode) {
-        print('Backend not available, vote not saved');
-      }
-      return;
+      debugPrint('⚠️  Backend not available, vote not saved');
+      throw Exception('Backend not available');
     }
 
     try {
-      await _api.vote(int.parse(policyId), stance);
+      debugPrint('🗳️  Voting on policy $policyId with stance: $stance');
+      
+      // Get device ID
+      final deviceId = await DeviceService.getDeviceId();
+      
+      // Cast vote with device ID
+      await _api.castVote(int.parse(policyId), stance, deviceId);
+      
+      debugPrint('✅ Vote submitted successfully');
       
       // Refresh policies to get updated vote counts
       await fetchPoliciesFromBackend();
+      
     } catch (e) {
+      debugPrint('❌ Error voting: $e');
       _error = e.toString();
       notifyListeners();
+      rethrow;
+    }
+  }
+
+  // ✅ NEW: Withdraw vote
+  Future<void> withdrawVote(String policyId) async {
+    if (!_useBackend) {
+      debugPrint('⚠️  Backend not available');
+      throw Exception('Backend not available');
+    }
+
+    try {
+      debugPrint('🗑️  Withdrawing vote from policy $policyId');
       
-      if (kDebugMode) {
-        print('Error voting: $e');
-      }
+      // Get device ID
+      final deviceId = await DeviceService.getDeviceId();
+      
+      // Delete vote
+      await _api.deleteVote(int.parse(policyId), deviceId);
+      
+      debugPrint('✅ Vote withdrawn successfully');
+      
+      // Refresh policies
+      await fetchPoliciesFromBackend();
+      
+    } catch (e) {
+      debugPrint('❌ Error withdrawing vote: $e');
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Check if user already voted
+  Future<Map<String, dynamic>> checkMyVote(String policyId) async {
+    if (!_useBackend) {
+      return {'voted': false, 'stance': null};
+    }
+
+    try {
+      final deviceId = await DeviceService.getDeviceId();
+      final result = await _api.getMyVote(int.parse(policyId), deviceId);
+      
+      debugPrint('✅ My Vote Status: ${result['voted']} - ${result['stance']}');
+      return result;
+      
+    } catch (e) {
+      debugPrint('❌ Error checking vote: $e');
+      return {'voted': false, 'stance': null};
+    }
+  }
+
+  /// Get vote results
+  Future<Map<String, dynamic>?> getVoteResults(String policyId) async {
+    if (!_useBackend) {
+      return null;
+    }
+
+    try {
+      final results = await _api.getVoteResults(int.parse(policyId));
+      debugPrint('✅ Vote Results: $results');
+      return results;
+      
+    } catch (e) {
+      debugPrint('❌ Error getting results: $e');
+      return null;
     }
   }
 

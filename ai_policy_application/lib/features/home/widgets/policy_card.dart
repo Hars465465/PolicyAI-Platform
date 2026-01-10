@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../core/themes/app_theme.dart';
 import '../../../models/policy.dart';
+import '../../../providers/policy_provider.dart';
+import '../../../data/services/api_service.dart';  // ✅ ADD THIS
 import '../../policy/details/policy_details_screen.dart';
 
-class PolicyCard extends StatelessWidget {
+class PolicyCard extends StatefulWidget {  // ✅ CHANGED: StatefulWidget
   final Policy policy;
 
   const PolicyCard({
@@ -12,15 +15,60 @@ class PolicyCard extends StatelessWidget {
   });
 
   @override
+  State<PolicyCard> createState() => _PolicyCardState();
+}
+
+class _PolicyCardState extends State<PolicyCard> {
+  final ApiService _apiService = ApiService();
+  Map<String, dynamic>? _voteResults;
+  bool _isLoadingVotes = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVoteResults();
+  }
+
+  // ✅ NEW: Load vote results from backend
+  Future<void> _loadVoteResults() async {
+    try {
+      final results = await _apiService.getVoteResults(int.parse(widget.policy.id));
+      if (mounted) {
+        setState(() {
+          _voteResults = results;
+          _isLoadingVotes = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingVotes = false;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // ✅ Use backend data if available, otherwise use policy data
+    final totalVotes = _voteResults?['total_votes'] ?? widget.policy.totalVotes;
+    final supportPercentage = _voteResults?['support_percentage'] ?? widget.policy.supportPercentage;
+    final opposePercentage = _voteResults?['oppose_percentage'] ?? widget.policy.opposePercentage;
+
     return InkWell(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final shouldRefresh = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
-            builder: (_) => PolicyDetailsScreen(policy: policy),
+            builder: (_) => PolicyDetailsScreen(policy: widget.policy),
           ),
         );
+
+        // ✅ UPDATED: Refresh both provider and card vote data
+        if (shouldRefresh == true && context.mounted) {
+          await context.read<PolicyProvider>().fetchPoliciesFromBackend();
+          await _loadVoteResults();  // ✅ Reload vote counts
+        }
       },
       borderRadius: BorderRadius.circular(20),
       child: Container(
@@ -54,7 +102,7 @@ class PolicyCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      policy.category,
+                      widget.policy.category,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -70,7 +118,7 @@ class PolicyCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    policy.timeLeft,
+                    widget.policy.timeLeft,
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.grey.shade600,
@@ -84,7 +132,7 @@ class PolicyCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                policy.title,
+                widget.policy.title,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -100,7 +148,7 @@ class PolicyCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 5, 16, 8),
               child: Text(
-                policy.description,
+                widget.policy.description,
                 style: TextStyle(
                   fontSize: 11,
                   color: Colors.grey.shade600,
@@ -111,36 +159,52 @@ class PolicyCard extends StatelessWidget {
               ),
             ),
 
-            // Voting Progress
+            // ✅ UPDATED: Voting Progress with loading state
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      _buildVoteLabel('Support', policy.supportPercentage),
-                      const Spacer(),
-                      _buildVoteLabel('Oppose', policy.opposePercentage),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: LinearProgressIndicator(
-                      value: policy.supportPercentage / 100,
-                      minHeight: 4,
-                      backgroundColor: AppTheme.warningRed.withOpacity(0.2),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppTheme.successGreen,
+              child: _isLoadingVotes
+                  ? SizedBox(
+                      height: 20,
+                      child: Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(
+                              AppTheme.primaryPurple.withOpacity(0.5),
+                            ),
+                          ),
+                        ),
                       ),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            _buildVoteLabel('Support', supportPercentage),
+                            const Spacer(),
+                            _buildVoteLabel('Oppose', opposePercentage),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(5),
+                          child: LinearProgressIndicator(
+                            value: supportPercentage / 100,
+                            minHeight: 4,
+                            backgroundColor: AppTheme.warningRed.withOpacity(0.2),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppTheme.successGreen,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
 
-            // Footer
+            // ✅ UPDATED: Footer with live vote count
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
@@ -158,8 +222,9 @@ class PolicyCard extends StatelessWidget {
                     color: Colors.grey.shade600,
                   ),
                   const SizedBox(width: 5),
+                  // ✅ UPDATED: Show live vote count
                   Text(
-                    '${policy.totalVotes} votes',
+                    '$totalVotes ${totalVotes == 1 ? 'vote' : 'votes'}',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -209,7 +274,7 @@ class PolicyCard extends StatelessWidget {
   }
 
   Color _getCategoryColor() {
-    switch (policy.category.toLowerCase()) {
+    switch (widget.policy.category.toLowerCase()) {
       case 'healthcare':
         return Colors.red.shade400;
       case 'education':

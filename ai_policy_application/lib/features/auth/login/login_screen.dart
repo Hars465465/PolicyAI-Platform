@@ -25,78 +25,117 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _sendEmailOTP() async {
-    final email = _emailController.text.trim();
+  final email = _emailController.text.trim();
 
-    if (email.isEmpty || !email.contains('@')) {
+  if (email.isEmpty || !email.contains('@')) {
+    _showError('Please enter a valid email');
+    return;
+  }
+
+  setState(() => _isLoading = true);
+
+  try {
+    debugPrint('📤 Requesting OTP for: $email');
+    
+    final response = await _api.sendEmailOTP(email);
+    
+    debugPrint('📥 Response received: $response');
+    
+    setState(() => _isLoading = false);
+
+    // ✅ Extract mock_otp for testing
+    final mockOTP = response['mock_otp']?.toString();
+    
+    debugPrint('🔑 Mock OTP: $mockOTP');
+
+    // Navigate to OTP screen
+    if (mounted) {
+      // ✅ Show success message with OTP (for development)
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Please enter a valid email'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          content: Text('OTP sent! ${mockOTP != null ? "OTP: $mockOTP" : ""}'),
+          backgroundColor: AppTheme.successGreen,
+          duration: const Duration(seconds: 5),
         ),
       );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final response = await _api.sendEmailOTP(email);
       
-      setState(() => _isLoading = false);
-
-      // Navigate to OTP screen
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => OTPScreen(
             email: email,
-            mockOTP: response['mock_otp'], // For testing
+            mockOTP: mockOTP,  // Pass OTP to screen
           ),
         ),
       );
-    } catch (e) {
-      setState(() => _isLoading = false);
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
     }
+  } catch (e) {
+    setState(() => _isLoading = false);
+    
+    debugPrint('❌ Error sending OTP: $e');
+    
+    _showError('Failed to send OTP: ${e.toString()}');
   }
+}
+
+void _showError(String message) {
+  if (!mounted) return;
+  
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(message),
+      backgroundColor: Colors.red,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      duration: const Duration(seconds: 4),
+    ),
+  );
+}
+
 
   Future<void> _signInWithGoogle() async {
-    setState(() => _isLoading = true);
+  setState(() => _isLoading = true);
 
-    try {
-      // For Phase 1: Mock Google Sign-In
-      // Phase 2: Use google_sign_in package
-      
-      final mockEmail = 'user@gmail.com';
-      final mockName = 'Test User';
-      final mockToken = 'mock_google_token_${DateTime.now().millisecondsSinceEpoch}';
+  try {
+    // For Phase 1: Mock Google Sign-In
+    // Phase 2: Use google_sign_in package
+    
+    final mockEmail = 'user@gmail.com';
+    final mockName = 'Test User';
+    final mockToken = 'mock_google_token_${DateTime.now().millisecondsSinceEpoch}';
 
-      final response = await _api.googleSignIn(
-        mockToken,
-        mockEmail,
-        mockName,
-        null,
+    final response = await _api.googleSignIn(
+      mockToken,
+      mockEmail,
+      mockName,
+      null,
+    );
+
+    setState(() => _isLoading = false);
+
+    // ✅ FIXED: Extract user data safely
+    final userData = response['user'];
+    final email = userData['email'] as String?;
+    final name = userData['name'] as String?;
+    final userId = userData['id'] as int?;
+    final token = response['access_token'] as String?;
+
+    if (email == null || name == null) {
+      throw Exception('Invalid response from server');
+    }
+
+    // ✅ FIXED: Save user info with userId
+    if (mounted) {
+      await context.read<AuthProvider>().login(
+        email: email,
+        name: name,
+        token: token,
+        userId: userId,  // ✅ Added userId
       );
+    }
 
-      setState(() => _isLoading = false);
-
-      // Save user info
-      context.read<AuthProvider>().login(
-        email: response['user']['email'],
-        name: response['user']['name'],
-      );
-
-      // Navigate to home
+    // Navigate to home
+    if (mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -104,18 +143,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Signed in with Google!'),
+          content: const Text('Signed in with Google! ✅'),
           backgroundColor: AppTheme.successGreen,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
-    } catch (e) {
-      setState(() => _isLoading = false);
-      
+    }
+  } catch (e) {
+    setState(() => _isLoading = false);
+    
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString()),
+          content: Text('Google Sign-In failed: ${e.toString()}'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -123,6 +164,8 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

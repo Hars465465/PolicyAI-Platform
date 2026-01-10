@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/themes/app_theme.dart';
 import '../../../providers/auth_provider.dart';
-import '../../../data/services/api_service.dart';
+import '../../../data/services/api_service.dart';  // ✅ FIXED PATH
 import '../../home/home_screen.dart';
 
 class OTPScreen extends StatefulWidget {
@@ -34,55 +34,123 @@ class _OTPScreenState extends State<OTPScreen> {
     final otp = _otpController.text.trim();
 
     if (otp.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please enter 6-digit OTP'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      _showError('Please enter 6-digit OTP');
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
+      // ✅ FIXED: Proper type checking and null safety
       final response = await _api.verifyEmailOTP(widget.email, otp);
+      
+      print('✅ API Response: $response'); // Debug log
+
+      // Extract user data safely with type checking
+      final dynamic userData = response['user'];
+      
+      if (userData == null) {
+        throw Exception('Invalid response: missing user data');
+      }
+
+      // ✅ FIXED: Safe type casting with null checks
+      final email = userData['email'] as String?;
+      final name = userData['name'] as String?;
+      final userId = userData['id'];
+      final token = response['access_token'] as String?;
+
+      if (email == null || name == null) {
+        throw Exception('Invalid user data received');
+      }
+
+      // Save auth data
+      if (mounted) {
+        await context.read<AuthProvider>().login(
+          email: email,
+          name: name,
+          token: token,
+          userId: userId is int ? userId : null,
+        );
+      }
 
       setState(() => _isLoading = false);
-
-      // Save user info
-      context.read<AuthProvider>().login(
-        email: response['user']['email'],
-        name: response['user']['name'],
-      );
 
       // Navigate to home
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Login successful!'),
-          backgroundColor: AppTheme.successGreen,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Login successful! ✅'),
+            backgroundColor: AppTheme.successGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
     } catch (e) {
       setState(() => _isLoading = false);
+      
+      print('❌ OTP Verification Error: $e'); // Debug log
+      
+      String errorMessage = 'Verification failed';
+      
+      if (e.toString().contains('Invalid OTP')) {
+        errorMessage = 'Invalid OTP. Please try again.';
+      } else if (e.toString().contains('expired')) {
+        errorMessage = 'OTP expired. Please request a new one.';
+      } else {
+        errorMessage = e.toString().replaceAll('Exception: ', '');
+      }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      _showError(errorMessage);
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-      );
+      ),
+    );
+  }
+
+  Future<void> _resendOTP() async {
+    setState(() => _isLoading = true);
+
+    try {
+      await _api.sendEmailOTP(widget.email);
+      
+      setState(() => _isLoading = false);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('OTP resent! Check your email 📧'),
+            backgroundColor: AppTheme.successGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showError('Failed to resend OTP');
     }
   }
 
@@ -223,10 +291,7 @@ class _OTPScreenState extends State<OTPScreen> {
 
               // Resend OTP
               TextButton(
-                onPressed: () {
-                  // Resend OTP logic
-                  Navigator.pop(context);
-                },
+                onPressed: _isLoading ? null : _resendOTP,
                 child: const Text(
                   'Resend OTP',
                   style: TextStyle(

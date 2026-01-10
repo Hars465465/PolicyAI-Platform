@@ -12,9 +12,9 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:mhfskelSXEFRyINpHjCVOMtxUbRmwekO@switchyard.proxy.rlwy.net:10418/railway")
     
     # JWT
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production-min-32-chars")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "re_PVZrzWum_Bdp2tXjy468zmmUfX14A3NYw")
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 43200
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
     
     # Google OAuth
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")

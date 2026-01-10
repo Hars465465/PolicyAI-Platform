@@ -40,12 +40,14 @@ dependencies:
   # HTTP client (for Phase 2+ APIs, safe to add now)
   dio: ^5.4.0                          # HTTP client
   shared_preferences: ^2.2.0            # Store token
-  google_sign_in: ^6.2.0                # Google authentication
+  google_sign_in: ^6.2.1                # Google authentication
   hive: ^2.2.3                # For caching later
   hive_flutter: ^1.1.0
   fl_chart: ^1.1.1
+  device_info_plus: ^10.1.0
    # Navigation
   go_router: ^17.0.1          # For clean routing (Phase 1–2) [file:1]
+  timeago: ^3.6.1
 
   # UI + fonts + icons
   google_fonts: ^6.1.0        # Material typography [file:1]
@@ -54,6 +56,7 @@ dependencies:
 
   # Utils
   intl: ^0.20.2               # Date / number formatting
+ 
 
 dev_dependencies:
   flutter_test:
