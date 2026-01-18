@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "690602446097",
+    "project_id": "policyai-1025b",
+    "storage_bucket": "policyai-1025b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:690602446097:android:9a0756626c999bc055d0b0",
+        "android_client_info": {
+          "package_name": "com.harsh.policyai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnIq054a66KHtUUjFCDNtmm_wiA46-d0U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

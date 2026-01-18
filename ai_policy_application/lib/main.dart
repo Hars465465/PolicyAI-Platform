@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'features/splash/splash_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/vote_provider.dart';
 import 'providers/policy_provider.dart';
 import 'providers/user_provider.dart'; 
-// ✅ Correct import path
+import '../data/services/notification_service.dart';
+
 
 class AppTheme {
   // ✅ Define your custom colors
@@ -53,7 +55,12 @@ class AppTheme {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  // firebase initialization
+  // ✅ Added Firebase initialization
+   await Firebase.initializeApp();
+  
+  // Initialize FCM
+  await NotificationService().initialize();
   // Lock orientation to portrait
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

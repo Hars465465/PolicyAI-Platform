@@ -14,7 +14,7 @@ class ApiService {
   }
 
   // ✅ REPLACE with your actual IP from ipconfig!
-  static const String _localBaseUrl = 'http://192.168.1.13:8000';
+  static const String _localBaseUrl = 'http://192.168.31.135:8000';
   static const String _productionBaseUrl = 'https://policyai-platform-production.up.railway.app';
   
   static String get baseUrl => kDebugMode ? _localBaseUrl : _productionBaseUrl;
@@ -434,4 +434,21 @@ Future<int> getCommentCount(int policyId) async {
     final token = await getToken();
     return token != null;
   }
+
+  Future<void> updateFcmToken(String deviceId, String fcmToken) async {
+  try {
+    final response = await dio.put(
+      '/users/me/fcm-token',
+      queryParameters: {
+        'device_id': deviceId,
+        'fcm_token': fcmToken,
+      },
+    );
+    debugPrint('✅ FCM token updated: ${response.data}');
+  } catch (e) {
+    debugPrint('❌ Error updating FCM token: $e');
+    rethrow;
+  }
+}
+
 }

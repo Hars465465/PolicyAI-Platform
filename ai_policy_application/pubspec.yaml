@@ -56,6 +56,9 @@ dependencies:
 
   # Utils
   intl: ^0.20.2               # Date / number formatting
+  firebase_core: ^3.8.1        # Add this
+  firebase_messaging: ^15.1.5  # Add this
+  http: ^1.6.0
  
 
 dev_dependencies:
