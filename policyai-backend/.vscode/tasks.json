@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Backend",
+      "type": "shell",
+      "command": "cd policyai-backend && venv\\Scripts\\activate && uvicorn main:app --reload",
+      "windows": {
+        "command": "cd policyai-backend && .\\venv\\Scripts\\activate && uvicorn main:app --reload"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Run Flutter",
+      "type": "shell",
+      "command": "cd flutter && flutter run",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

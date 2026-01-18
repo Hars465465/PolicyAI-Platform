@@ -10,6 +10,7 @@ except Exception as e:
 class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:mhfskelSXEFRyINpHjCVOMtxUbRmwekO@switchyard.proxy.rlwy.net:10418/railway")
+    firebase_credentials_path: str = "firebase-credentials.json"
     
     # JWT
     SECRET_KEY: str = os.getenv("SECRET_KEY", "re_PVZrzWum_Bdp2tXjy468zmmUfX14A3NYw")
@@ -30,5 +31,6 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        extra="forbid"
 
 settings = Settings()

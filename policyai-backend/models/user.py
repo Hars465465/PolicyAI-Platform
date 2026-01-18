@@ -11,6 +11,7 @@ class User(Base):
     device_id = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    fcm_token = Column(String(255), nullable=True)
     
     # ✅ ADD THIS LINE
     comments = relationship("Comment", back_populates="user", cascade="all, delete-orphan")

@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime, timezone  # ✅ Add timezone
+from datetime import datetime, timezone  
 from models.policy import Policy
 from models.vote import Vote
-from schemas.policy import PolicyResponse
+from schemas.policy import PolicyResponse, PolicyCreate
 from database import get_db
+from services.fcm_service import send_new_policy_notification
 
 router = APIRouter()
 
@@ -84,3 +85,26 @@ def get_policy(policy_id: int, db: Session = Depends(get_db)):
         "time_left": time_left,
         "created_at": policy.created_at
     }
+
+from services.fcm_service import send_new_policy_notification
+
+@router.post("/policies")
+def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)):
+    """Create new policy and notify all users"""
+    
+    new_policy = Policy(
+        title=policy.title,
+        description=policy.description,
+        category=policy.category,
+        is_active=True
+    )
+    
+    db.add(new_policy)
+    db.commit()
+    db.refresh(new_policy)
+    
+    # Send push notification to all users
+    send_new_policy_notification(new_policy.title)
+    
+    return {"message": "Policy created", "policy": new_policy}
+
