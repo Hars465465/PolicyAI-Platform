@@ -113,10 +113,15 @@ async def verify_email_otp(request: EmailOTPVerify, db: Session = Depends(get_db
     user = db.query(User).filter(User.email == request.email).first()
     
     if not user:
+        # Generate unique device_id for email auth
+        import uuid
+        device_id = f"email_{uuid.uuid4().hex[:16]}"
+        
         # Create new user
         user = User(
             email=request.email,
             username=request.email.split('@')[0],  # Use email username as name
+            device_id=device_id,  # ✅ ADD THIS LINE!
             is_email_verified=True,
             auth_provider="email",
             last_login=datetime.utcnow()
@@ -124,7 +129,7 @@ async def verify_email_otp(request: EmailOTPVerify, db: Session = Depends(get_db
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"✅ New user created: {user.email}")
+        print(f"✅ New user created: {user.email} with device_id: {device_id}")
     else:
         # Update existing user
         user.last_login = datetime.utcnow()
@@ -149,7 +154,6 @@ async def verify_email_otp(request: EmailOTPVerify, db: Session = Depends(get_db
             "auth_provider": user.auth_provider
         }
     }
-
 
 # ============ GOOGLE SIGN IN ============
 
