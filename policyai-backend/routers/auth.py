@@ -5,25 +5,31 @@ import jwt
 from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+import uuid
 from models.user import User
 from database import get_db
 from config import settings
 from services.otp_service import generate_otp, store_otp, verify_otp, send_otp_email
 
 
+
 router = APIRouter()
 
 
+
 # ============ SCHEMAS ============
+
 
 
 class EmailOTPRequest(BaseModel):
     email: EmailStr
 
 
+
 class EmailOTPVerify(BaseModel):
     email: EmailStr
     otp: str
+
 
 
 class GoogleSignIn(BaseModel):
@@ -33,10 +39,12 @@ class GoogleSignIn(BaseModel):
     avatar_url: Optional[str] = None
 
 
+
 class Token(BaseModel):
     access_token: str
     token_type: str
     user: dict
+
 
 
 class UserResponse(BaseModel):
@@ -52,13 +60,16 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
 
 
+
 # ============ EMAIL OTP ============
+
 
 
 @router.post("/email/send-otp")
@@ -98,6 +109,7 @@ async def send_email_otp(request: EmailOTPRequest, db: Session = Depends(get_db)
         )
 
 
+
 @router.post("/email/verify-otp", response_model=Token)
 async def verify_email_otp(request: EmailOTPVerify, db: Session = Depends(get_db)):
     """Verify email OTP and return JWT token"""
@@ -114,16 +126,17 @@ async def verify_email_otp(request: EmailOTPVerify, db: Session = Depends(get_db
     
     if not user:
         # ✅ Generate ALL required fields
-        import uuid
         device_id = f"email_{uuid.uuid4().hex[:16]}"
         username = request.email.split('@')[0]
         
-        # Create new user with ALL REQUIRED FIELDS
+        # ✅ Create new user with ALL REQUIRED FIELDS
         user = User(
             email=request.email,
             username=username,
-            full_name=username,      # ✅ REQUIRED - Add this!
-            device_id=device_id,      # ✅ REQUIRED - Add this!
+            name=username,           # ✅ ADDED
+            full_name=username,      # ✅ REQUIRED
+            device_id=device_id,     # ✅ REQUIRED
+            profile_picture="",      # ✅ REQUIRED (default empty)
             is_email_verified=True,
             auth_provider="email",
             last_login=datetime.utcnow()
@@ -131,11 +144,11 @@ async def verify_email_otp(request: EmailOTPVerify, db: Session = Depends(get_db
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"✅ New user created: {user.email} (device_id: {device_id})")
+        print(f"✅ New user created: {user.email} (ID: {user.id}, device_id: {device_id})")
     else:
         # Update existing user
         user.last_login = datetime.utcnow()
-        user.is_verified = True
+        user.is_email_verified = True
         db.commit()
         print(f"✅ User logged in: {user.email}")
     
@@ -158,7 +171,9 @@ async def verify_email_otp(request: EmailOTPVerify, db: Session = Depends(get_db
     }
 
 
+
 # ============ GOOGLE SIGN IN ============
+
 
 
 @router.post("/google/signin", response_model=Token)
@@ -196,11 +211,20 @@ async def google_sign_in(request: GoogleSignIn, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == request.email).first()
     
     if not user:
+        # ✅ Generate ALL required fields
+        device_id = f"google_{uuid.uuid4().hex[:16]}"
+        username = request.email.split('@')[0]
+        
+        # ✅ Create new user with ALL REQUIRED FIELDS
         user = User(
             email=request.email,
-            name=request.name or request.email.split('@')[0],
+            username=username,                              # ✅ ADDED
+            name=request.name or username,                  # ✅ ADDED
+            full_name=request.name or username,             # ✅ ADDED
+            device_id=device_id,                            # ✅ ADDED
+            profile_picture=request.avatar_url or "",       # ✅ ADDED
             avatar_url=request.avatar_url,
-            google_id=request.google_token[:20],  # Mock for now
+            google_id=request.google_token[:20],
             is_verified=True,
             auth_provider="google",
             last_login=datetime.utcnow()
@@ -208,7 +232,7 @@ async def google_sign_in(request: GoogleSignIn, db: Session = Depends(get_db)):
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"✅ New Google user created: {user.email}")
+        print(f"✅ New Google user created: {user.email} (ID: {user.id})")
     else:
         # Update existing user
         user.last_login = datetime.utcnow()
@@ -237,7 +261,9 @@ async def google_sign_in(request: GoogleSignIn, db: Session = Depends(get_db)):
     }
 
 
+
 # ============ GET CURRENT USER ============
+
 
 
 @router.get("/me", response_model=UserResponse)
@@ -260,7 +286,9 @@ async def get_current_user(
     return user
 
 
+
 # ============ GET USER PROFILE ============
+
 
 
 @router.get("/me/profile")
@@ -293,7 +321,9 @@ async def get_user_profile(db: Session = Depends(get_db)):
     }
 
 
+
 # ============ UPDATE USER PROFILE ============
+
 
 
 @router.put("/me/update")
@@ -347,7 +377,9 @@ async def update_user_profile(
     }
 
 
+
 # ============ LOGOUT ============
+
 
 
 @router.post("/logout")
@@ -362,7 +394,9 @@ async def logout():
     }
 
 
+
 # ============ HELPER FUNCTIONS ============
+
 
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
@@ -384,6 +418,7 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     )
     
     return encoded_jwt
+
 
 
 def verify_access_token(token: str):

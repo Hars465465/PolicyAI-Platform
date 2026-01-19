@@ -16,8 +16,9 @@ class User(Base):
     bio = Column(String(500), nullable=True)  # ← ADDED for profile updates
     
     # Profile pictures
-    profile_picture = Column(String(500), nullable=True)
-    avatar_url = Column(String(500), nullable=True)  # ← ADDED for auth.py
+    profile_picture = Column(String(500), nullable=True, default="")
+
+    avatar_url = Column(String(500), nullable=True, default="")  # ← ADDED for auth.py
     
     # Auth providers
     auth_provider = Column(String(20), default="email")
