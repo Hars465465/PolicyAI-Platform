@@ -29,7 +29,13 @@ app.add_middleware(
 async def startup():
     print("🔨 Creating/updating database tables...")
     Base.metadata.create_all(bind=engine)
+    
+    # Add missing columns manually
+    from add_columns import add_missing_columns
+    add_missing_columns()
+    
     print("✅ Database ready!")
+
 
 # Root endpoint
 @app.get("/")
