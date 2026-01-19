@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship 
 from database import Base
 
 class User(Base):
@@ -37,3 +38,7 @@ class User(Base):
     
     # Login tracking
     last_login = Column(DateTime(timezone=True), nullable=True)
+
+    policies = relationship("Policy", back_populates="author", cascade="all, delete-orphan")
+    votes = relationship("Vote", back_populates="user", cascade="all, delete-orphan")
+    comments = relationship("Comment", back_populates="user", cascade="all, delete-orphan")
