@@ -45,6 +45,12 @@ rsa==4.9.1
 cffi==2.0.0
 pycparser==2.23
 
+# Email validation (required by Pydantic EmailStr)
+email-validator==2.1.0
+
+# Email service (for OTP)
+resend==2.19.0
+
 # Utilities
 anyio==4.12.1
 certifi==2026.1.4
@@ -54,6 +60,3 @@ urllib3==2.6.3
 typing-extensions==4.15.0
 msgpack==1.1.2
 CacheControl==0.14.4
-resend==2.19.0
-email-validator
-pydantic[email]==2.5.0  # ← ADD THIS 
