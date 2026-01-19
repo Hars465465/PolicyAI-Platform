@@ -16,7 +16,7 @@ class User(Base):
     bio = Column(String(500), nullable=True)  # ← ADDED for profile updates
     
     # Profile pictures
-    profile_picture = Column(String(500), nullable=True, default="")
+     profile_picture = Column(String(500), default="", nullable=False)
 
     avatar_url = Column(String(500), nullable=True, default="")  # ← ADDED for auth.py
     
@@ -37,7 +37,7 @@ class User(Base):
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     last_login = Column(DateTime(timezone=True), nullable=True)  # ← ADDED for auth.py
     
     # Relationships
