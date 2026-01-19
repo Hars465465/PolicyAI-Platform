@@ -25,29 +25,17 @@ app.add_middleware(
 )
 
 # Create/Update tables on startup
-from sqlalchemy import text
-
 @app.on_event("startup")
 async def startup():
-    print("🔨 Adding missing columns to users table...")
-    
-    # Add missing columns
-    with engine.connect() as connection:
-        try:
-            connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);"))
-            connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS bio VARCHAR(500);"))
-            connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500);"))
-            connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255);"))
-            connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;"))
-            connection.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE;"))
-            connection.commit()
-            print("✅ All columns added!")
-        except Exception as e:
-            print(f"⚠️  Column add error (might already exist): {e}")
-    
-    # Create tables for other models
+    print("🔨 Creating/updating database tables...")
     Base.metadata.create_all(bind=engine)
+    
+    # Add missing columns manually
+    from add_columns import add_missing_columns
+    add_missing_columns()
+    
     print("✅ Database ready!")
+
 
 # Root endpoint
 @app.get("/")
