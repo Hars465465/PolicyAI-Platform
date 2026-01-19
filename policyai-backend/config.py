@@ -1,15 +1,17 @@
 import os
 from pydantic_settings import BaseSettings
 
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except Exception as e:
     print(f"Warning: Could not load .env file: {e}")
 
+
 class Settings(BaseSettings):
-    # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://postgres:mhfskelSXEFRyINpHjCVOMtxUbRmwekO@switchyard.proxy.rlwy.net:10418/railway")
+    # Database - Remove default, make it required
+    DATABASE_URL: str
     firebase_credentials_path: str = "firebase-credentials.json"
     
     # JWT
@@ -31,6 +33,7 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
-        extra="forbid"
+        extra = "forbid"
+
 
 settings = Settings()
