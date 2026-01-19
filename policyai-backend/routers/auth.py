@@ -117,7 +117,7 @@ async def verify_email_otp(request: EmailOTPVerify, db: Session = Depends(get_db
         user = User(
             email=request.email,
             username=request.email.split('@')[0],  # Use email username as name
-            is_verified=True,
+            is_email_verified=True,
             auth_provider="email",
             last_login=datetime.utcnow()
         )

@@ -24,11 +24,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create tables
-print("🔨 Creating database tables...")
-Base.metadata.create_all(bind=engine)
-print("✅ Database ready!")
-
+# Create/Update tables on startup
+@app.on_event("startup")
+async def startup():
+    print("🔨 Creating/updating database tables...")
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database ready!")
 
 # Root endpoint
 @app.get("/")
@@ -40,15 +41,12 @@ def root():
         "docs": "/docs",
     }
 
-
 @app.get("/health")
 def health_check():
     return {"status": "ok", "database": "Railway PostgreSQL"}
 
-
 # Import routers
 from routers import auth, comment, policies, users, votes  # noqa: E402
-
 
 # Register routes
 app.include_router(policies.router, prefix="/api/policies", tags=["Policies"])
@@ -56,10 +54,8 @@ app.include_router(votes.router, prefix="/api/policies", tags=["Votes"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(comment.router, prefix="/api/comments", tags=["Comments"])
 app.include_router(users.router, prefix="/api", tags=["Users"]) 
-app.include_router(comment.router, prefix="/api", tags=["Comments"])
 
-
-# 🔁 NEW: withdraw/delete vote endpoint
+# 🔁 Withdraw/delete vote endpoint
 @app.delete("/api/policies/{policy_id}/vote")
 async def delete_vote(
     policy_id: int,
@@ -67,17 +63,17 @@ async def delete_vote(
     db: Session = Depends(get_db),
 ):
     """Withdraw/delete a vote for this device on a policy."""
-
+    
     # Find policy
     policy = db.query(Policy).filter(Policy.id == policy_id).first()
     if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
-
+    
     # Find user by device_id
     user = db.query(User).filter(User.device_id == device_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-
+    
     # Find existing vote
     existing_vote = (
         db.query(Vote)
@@ -86,13 +82,12 @@ async def delete_vote(
     )
     if not existing_vote:
         raise HTTPException(status_code=404, detail="No vote found to delete")
-
+    
     # Delete vote
     db.delete(existing_vote)
     db.commit()
-
+    
     return {"message": "Vote withdrawn successfully", "policy_id": policy_id}
-
 
 print("🚀 Routes registered!")
 print("📋 API Docs: http://localhost:8000/docs")
