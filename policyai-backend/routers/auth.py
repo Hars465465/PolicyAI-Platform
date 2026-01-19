@@ -113,15 +113,17 @@ async def verify_email_otp(request: EmailOTPVerify, db: Session = Depends(get_db
     user = db.query(User).filter(User.email == request.email).first()
     
     if not user:
-        # Generate unique device_id for email auth
+        # ✅ Generate ALL required fields
         import uuid
         device_id = f"email_{uuid.uuid4().hex[:16]}"
+        username = request.email.split('@')[0]
         
-        # Create new user
+        # Create new user with ALL REQUIRED FIELDS
         user = User(
             email=request.email,
-            username=request.email.split('@')[0],  # Use email username as name
-            device_id=device_id,  # ✅ ADD THIS LINE!
+            username=username,
+            full_name=username,      # ✅ REQUIRED - Add this!
+            device_id=device_id,      # ✅ REQUIRED - Add this!
             is_email_verified=True,
             auth_provider="email",
             last_login=datetime.utcnow()
@@ -129,7 +131,7 @@ async def verify_email_otp(request: EmailOTPVerify, db: Session = Depends(get_db
         db.add(user)
         db.commit()
         db.refresh(user)
-        print(f"✅ New user created: {user.email} with device_id: {device_id}")
+        print(f"✅ New user created: {user.email} (device_id: {device_id})")
     else:
         # Update existing user
         user.last_login = datetime.utcnow()
@@ -148,12 +150,13 @@ async def verify_email_otp(request: EmailOTPVerify, db: Session = Depends(get_db
         "user": {
             "id": user.id,
             "email": user.email,
-            "name": user.name,
+            "name": user.name or user.username,
             "bio": user.bio if hasattr(user, 'bio') else None,
             "avatar_url": user.avatar_url,
             "auth_provider": user.auth_provider
         }
     }
+
 
 # ============ GOOGLE SIGN IN ============
 
