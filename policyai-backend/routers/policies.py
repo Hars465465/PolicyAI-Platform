@@ -93,18 +93,30 @@ def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)):
     """Create new policy and notify all users"""
     from models.user import User
     
+    # Get or create admin user
     admin_user = db.query(User).first()
     if not admin_user:
-        admin_user = User(device_id="SYSTEM_ADMIN", name="System Admin", fcm_token=None)
+        admin_user = User(
+            device_id="SYSTEM_ADMIN",
+            name="System Admin",
+            fcm_token=None
+        )
         db.add(admin_user)
         db.commit()
         db.refresh(admin_user)
     
+    # Generate ai_summary if not provided
+    ai_summary = getattr(policy, 'ai_summary', None)
+    if not ai_summary:
+        ai_summary = policy.description[:100] + "..." if len(policy.description) > 100 else policy.description
+    
+    # Create policy with ALL required fields
     new_policy = Policy(
         title=policy.title,
         description=policy.description,
         category=policy.category,
-        author_id=admin_user.id,
+        author_id=admin_user.id,      # ✅ REQUIRED by model
+        ai_summary=ai_summary,         # ✅ OPTIONAL but good to have
         is_active=True
     )
     
@@ -112,5 +124,7 @@ def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_policy)
     
+    # Send push notification to all users
     send_new_policy_notification(new_policy.title)
+    
     return {"message": "Policy created", "policy": new_policy}
