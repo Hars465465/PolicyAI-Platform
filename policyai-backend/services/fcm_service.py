@@ -67,19 +67,38 @@ def send_notification_to_multiple(tokens: List[str], title: str, body: str, data
         return None
     
     try:
-        message = messaging.MulticastMessage(
-            notification=messaging.Notification(
-                title=title,
-                body=body,
-            ),
-            data=data or {},
-            tokens=tokens,
-        )
+        # ✅ FIX: Send individually instead of multicast
+        success_count = 0
+        failure_count = 0
         
-        response = messaging.send_multicast(message)
-        print(f"✅ {response.success_count} notifications sent")
-        print(f"❌ {response.failure_count} notifications failed")
-        return response
+        for token in tokens:
+            try:
+                message = messaging.Message(
+                    notification=messaging.Notification(
+                        title=title,
+                        body=body,
+                    ),
+                    data=data or {},
+                    token=token,
+                )
+                
+                response = messaging.send(message)
+                success_count += 1
+                
+            except Exception as e:
+                print(f"❌ Failed for token {token[:20]}...: {e}")
+                failure_count += 1
+        
+        print(f"✅ {success_count} notifications sent")
+        print(f"❌ {failure_count} notifications failed")
+        
+        # Return mock response object
+        class Response:
+            pass
+        resp = Response()
+        resp.success_count = success_count
+        resp.failure_count = failure_count
+        return resp
         
     except Exception as e:
         print(f"❌ Error sending notifications: {e}")
