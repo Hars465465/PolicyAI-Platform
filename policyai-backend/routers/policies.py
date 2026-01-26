@@ -4,16 +4,19 @@ from typing import List
 from datetime import datetime, timezone  
 from models.policy import Policy
 from models.vote import Vote
-from schemas.policy import PolicyResponse, PolicyCreate
+from models.user import User
+from schemas.policy import PolicyResponse, PolicyCreate, PolicyWithStats
 from database import get_db
 from services.fcm_service import send_new_policy_notification
+from services.ai_service import generate_policy_summary, analyze_policy_pros_cons
+
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[PolicyResponse])
+@router.get("/", response_model=List[PolicyWithStats])
 def get_policies(db: Session = Depends(get_db)):
-    """Get all active policies"""
+    """Get all active policies with voting stats"""
     
     policies = db.query(Policy).filter(Policy.is_active == True).all()
     
@@ -27,32 +30,41 @@ def get_policies(db: Session = Depends(get_db)):
         support_percentage = int((support_votes / total_votes * 100)) if total_votes > 0 else 0
         oppose_percentage = int((oppose_votes / total_votes * 100)) if total_votes > 0 else 0
         
-        # ✅ Fix: Use timezone-aware datetime
+        # Calculate time left
         if policy.ends_at:
-            now = datetime.now(timezone.utc)  # ✅ Changed
+            now = datetime.now(timezone.utc)
             days_left = (policy.ends_at - now).days
             time_left = f"{days_left} days left" if days_left > 0 else "Ended"
         else:
             time_left = "No deadline"
         
-        result.append({
+        # Build response with all fields including pros/cons
+        policy_dict = {
             "id": policy.id,
             "title": policy.title,
             "description": policy.description,
             "category": policy.category,
+            "author_id": policy.author_id,
+            "ai_summary": policy.ai_summary,
+            "pros": policy.pros if policy.pros else [],
+            "cons": policy.cons if policy.cons else [],
+            "is_active": policy.is_active,
+            "created_at": policy.created_at,
+            "ends_at": policy.ends_at,
+            "updated_at": policy.updated_at if hasattr(policy, 'updated_at') else None,
             "support_percentage": support_percentage,
             "oppose_percentage": oppose_percentage,
             "total_votes": total_votes,
-            "time_left": time_left,
-            "created_at": policy.created_at
-        })
+            "time_left": time_left
+        }
+        result.append(policy_dict)
     
     return result
 
 
-@router.get("/{policy_id}", response_model=PolicyResponse)
+@router.get("/{policy_id}", response_model=PolicyWithStats)
 def get_policy(policy_id: int, db: Session = Depends(get_db)):
-    """Get single policy by ID"""
+    """Get single policy by ID with voting stats"""
     
     policy = db.query(Policy).filter(Policy.id == policy_id).first()
     if not policy:
@@ -66,9 +78,9 @@ def get_policy(policy_id: int, db: Session = Depends(get_db)):
     support_percentage = int((support_votes / total_votes * 100)) if total_votes > 0 else 0
     oppose_percentage = int((oppose_votes / total_votes * 100)) if total_votes > 0 else 0
     
-    # ✅ Fix: Use timezone-aware datetime
+    # Calculate time left
     if policy.ends_at:
-        now = datetime.now(timezone.utc)  # ✅ Changed
+        now = datetime.now(timezone.utc)
         days_left = (policy.ends_at - now).days
         time_left = f"{days_left} days left" if days_left > 0 else "Ended"
     else:
@@ -79,19 +91,24 @@ def get_policy(policy_id: int, db: Session = Depends(get_db)):
         "title": policy.title,
         "description": policy.description,
         "category": policy.category,
+        "author_id": policy.author_id,
+        "ai_summary": policy.ai_summary,
+        "pros": policy.pros if policy.pros else [],
+        "cons": policy.cons if policy.cons else [],
+        "is_active": policy.is_active,
+        "created_at": policy.created_at,
+        "ends_at": policy.ends_at,
+        "updated_at": policy.updated_at if hasattr(policy, 'updated_at') else None,
         "support_percentage": support_percentage,
         "oppose_percentage": oppose_percentage,
         "total_votes": total_votes,
-        "time_left": time_left,
-        "created_at": policy.created_at
+        "time_left": time_left
     }
 
-from services.fcm_service import send_new_policy_notification
 
-@router.post("/policies")
+@router.post("/policies", response_model=PolicyResponse)
 def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)):
-    """Create new policy and notify all users"""
-    from models.user import User
+    """Create new policy with AI-generated summary, pros, and cons"""
     
     # Get or create admin user
     admin_user = db.query(User).first()
@@ -105,18 +122,33 @@ def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(admin_user)
     
-    # Generate ai_summary if not provided
-    ai_summary = getattr(policy, 'ai_summary', None)
+    # Generate AI summary if not provided
+    ai_summary = policy.ai_summary
     if not ai_summary:
-        ai_summary = policy.description[:100] + "..." if len(policy.description) > 100 else policy.description
+        print(f"🤖 Generating AI summary for: {policy.title}")
+        ai_summary = generate_policy_summary(
+            title=policy.title,
+            description=policy.description,
+            category=policy.category
+        )
     
-    # Create policy with ALL required fields
+    # Generate AI pros & cons analysis
+    print(f"🤖 Analyzing pros & cons for: {policy.title}")
+    analysis = analyze_policy_pros_cons(
+        title=policy.title,
+        description=policy.description,
+        category=policy.category
+    )
+    
+    # Create new policy with AI-generated content
     new_policy = Policy(
         title=policy.title,
         description=policy.description,
         category=policy.category,
-        author_id=admin_user.id,      # ✅ REQUIRED by model
-        ai_summary=ai_summary,         # ✅ OPTIONAL but good to have
+        author_id=admin_user.id,
+        ai_summary=ai_summary,
+        pros=analysis["pros"],
+        cons=analysis["cons"],
         is_active=True
     )
     
@@ -127,4 +159,5 @@ def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)):
     # Send push notification to all users
     send_new_policy_notification(new_policy.title)
     
-    return {"message": "Policy created", "policy": new_policy}
+    # Return the policy object directly
+    return new_policy

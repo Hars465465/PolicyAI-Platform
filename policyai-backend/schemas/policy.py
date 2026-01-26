@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 
 class PolicyBase(BaseModel):
@@ -35,6 +35,11 @@ class PolicyResponse(BaseModel):
     total_votes: int
     time_left: str
     created_at: datetime
+
+
+    pros: Optional[List[str]] = None
+    cons: Optional[List[str]] = None
+    
     
     model_config = {
         "from_attributes": True  # Replaces orm_mode in Pydantic v2
@@ -52,3 +57,10 @@ class VoteResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class PolicyWithStats(PolicyResponse):
+    """Policy with voting statistics"""
+    support_percentage: int = 0
+    oppose_percentage: int = 0
+    total_votes: int = 0
+    time_left: str = "No deadline"        

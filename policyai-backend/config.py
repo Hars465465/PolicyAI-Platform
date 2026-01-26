@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 from pydantic_settings import BaseSettings
 
 
@@ -30,6 +31,9 @@ class Settings(BaseSettings):
     # App
     PROJECT_NAME: str = "PolicyAI"
     VERSION: str = "1.0.0"
+
+    # Gemini AI
+    gemini_api_key: Optional[str] = None
     
     class Config:
         env_file = ".env"

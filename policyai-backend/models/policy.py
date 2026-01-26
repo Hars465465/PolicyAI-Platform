@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey
+from sqlalchemy import ARRAY, Column, Integer, String, Text, DateTime, Boolean, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
@@ -18,6 +18,9 @@ class Policy(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     ends_at = Column(DateTime(timezone=True), nullable=True)
+
+    pros = Column(ARRAY(Text), nullable=True)  # Array of pros
+    cons = Column(ARRAY(Text), nullable=True) # Array of cons
     
     # Relationships - ADD ALL THREE!
     author = relationship("User", back_populates="policies")  # ← ADD THIS!
