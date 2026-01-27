@@ -162,6 +162,7 @@ def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)) -> Policy
     send_new_policy_notification(new_policy.title)
     
     # Build PolicyResponse with required fields
+        # Build PolicyResponse with required fields
     return PolicyResponse(
         id=new_policy.id,
         title=new_policy.title,
@@ -174,5 +175,9 @@ def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)) -> Policy
         is_active=new_policy.is_active,
         created_at=new_policy.created_at,
         ends_at=new_policy.ends_at,
-        updated_at=new_policy.updated_at if hasattr(new_policy, 'updated_at') else None
+        updated_at=new_policy.updated_at if hasattr(new_policy, 'updated_at') else None,
+        support_percentage=0,
+        oppose_percentage=0,
+        total_votes=0,
+        time_left="No deadline"
     )
