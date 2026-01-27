@@ -17,6 +17,7 @@ router = APIRouter()
 
 
 @router.get("/", response_model=List[PolicyWithStats])
+
 def get_policies(db: Session = Depends(get_db)):
     """Get all active policies with voting stats"""
     
