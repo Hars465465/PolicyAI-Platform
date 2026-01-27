@@ -1,6 +1,5 @@
 # Force update 2026-01-27
 from fastapi import APIRouter, Depends, HTTPException
-
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timezone  
@@ -162,5 +161,18 @@ def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)) -> Policy
     # Send push notification to all users
     send_new_policy_notification(new_policy.title)
     
-    # Return the policy object directly
-    return new_policy
+    # Build PolicyResponse with required fields
+    return PolicyResponse(
+        id=new_policy.id,
+        title=new_policy.title,
+        description=new_policy.description,
+        category=new_policy.category,
+        author_id=new_policy.author_id,
+        ai_summary=new_policy.ai_summary,
+        pros=new_policy.pros if new_policy.pros else [],
+        cons=new_policy.cons if new_policy.cons else [],
+        is_active=new_policy.is_active,
+        created_at=new_policy.created_at,
+        ends_at=new_policy.ends_at,
+        updated_at=new_policy.updated_at if hasattr(new_policy, 'updated_at') else None
+    )
