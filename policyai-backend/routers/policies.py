@@ -110,7 +110,7 @@ def get_policy(policy_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/policies", response_model=PolicyResponse)
-def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)):
+def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)) -> PolicyResponse:
     """Create new policy with AI-generated summary, pros, and cons"""
     
     # Get or create admin user
