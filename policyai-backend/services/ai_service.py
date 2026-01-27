@@ -36,7 +36,7 @@ Summary (40-50 words, neutral tone):"""
 
         # Call Gemini 2.5 Flash (fastest, cheapest model)
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-1.5-flash',
             contents=prompt
         )
         
