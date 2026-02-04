@@ -438,11 +438,11 @@ Future<int> getCommentCount(int policyId) async {
   Future<void> updateFcmToken(String deviceId, String fcmToken) async {
   try {
     debugPrint('📱 Updating FCM token...');
-    debugPrint('   Device ID: ${deviceId.substring(0, 20)}...');
-    debugPrint('   FCM Token: ${fcmToken.substring(0, 30)}...');
+    debugPrint('   Device ID: ${deviceId.length > 20 ? deviceId.substring(0, 20) : deviceId}...');
+    debugPrint('   FCM Token: ${fcmToken.length > 30 ? fcmToken.substring(0, 30) : fcmToken}...');
     
     final response = await dio.put(
-      '/api/users/me/fcm-token',  // ✅ FIXED: Added /api prefix
+      '/api/users/me/fcm-token',
       queryParameters: {
         'device_id': deviceId,
         'fcm_token': fcmToken,
