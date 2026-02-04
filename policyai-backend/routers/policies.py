@@ -10,13 +10,11 @@ from schemas.policy import PolicyResponse, PolicyCreate, PolicyWithStats
 from database import get_db
 from services.fcm_service import send_new_policy_notification
 from services.ai_service import generate_policy_summary, analyze_policy_pros_cons
-
+from services.notification_service import send_notification  # ✅ ADD THIS
 
 router = APIRouter()
 
-
 @router.get("/", response_model=List[PolicyWithStats])
-
 def get_policies(db: Session = Depends(get_db)):
     """Get all active policies with voting stats"""
     
@@ -63,7 +61,6 @@ def get_policies(db: Session = Depends(get_db)):
     
     return result
 
-
 @router.get("/{policy_id}", response_model=PolicyWithStats)
 def get_policy(policy_id: int, db: Session = Depends(get_db)):
     """Get single policy by ID with voting stats"""
@@ -107,9 +104,8 @@ def get_policy(policy_id: int, db: Session = Depends(get_db)):
         "time_left": time_left
     }
 
-
 @router.post("/policies", response_model=PolicyResponse)
-def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)) -> PolicyResponse:
+async def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)) -> PolicyResponse:  # ✅ ADD async
     """Create new policy with AI-generated summary, pros, and cons"""
     
     # Get or create admin user
@@ -158,11 +154,23 @@ def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)) -> Policy
     db.commit()
     db.refresh(new_policy)
     
-    # Send push notification to all users
+    # Send push notification to all users (existing function)
     send_new_policy_notification(new_policy.title)
     
+    # ✅ NEW: Send FCM notifications to all users
+    print(f"🔔 Sending FCM notifications for new policy: {new_policy.title}")
+    await notify_all_users(
+        db=db,
+        title="🆕 New Policy Created!",
+        body=f"{new_policy.title}",
+        data={
+            "type": "policy_created",
+            "policy_id": new_policy.id,
+            "category": new_policy.category
+        }
+    )
+    
     # Build PolicyResponse with required fields
-        # Build PolicyResponse with required fields
     return PolicyResponse(
         id=new_policy.id,
         title=new_policy.title,
@@ -183,7 +191,7 @@ def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)) -> Policy
     )
 
 @router.put("/{policy_id}", response_model=PolicyResponse)
-def update_policy(
+async def update_policy(  # ✅ ADD async
     policy_id: int,
     policy_update: PolicyCreate,
     db: Session = Depends(get_db),
@@ -204,7 +212,7 @@ def update_policy(
     # Regenerate AI summary if not provided in request
     ai_summary = policy_update.ai_summary
     if not ai_summary:
-        print(f" 🔄 Regenerating AI summary for: {policy_update.title}")
+        print(f"🔄 Regenerating AI summary for: {policy_update.title}")
         ai_summary = generate_policy_summary(
             title=policy_update.title,
             description=policy_update.description,
@@ -212,7 +220,7 @@ def update_policy(
         )
 
     # Regenerate pros/cons via AI
-    print(f" 🔄 Regenerating pros & cons for: {policy_update.title}")
+    print(f"🔄 Regenerating pros & cons for: {policy_update.title}")
     analysis = analyze_policy_pros_cons(
         title=policy_update.title,
         description=policy_update.description,
@@ -225,6 +233,19 @@ def update_policy(
 
     db.commit()
     db.refresh(policy)
+    
+    # ✅ NEW: Send notification to users who voted on this policy
+    print(f"🔔 Notifying voters about policy update: {policy.title}")
+    await notify_policy_voters(
+        db=db,
+        policy_id=policy_id,
+        title="📝 Policy Updated!",
+        body=f"{policy.title} has been updated",
+        data={
+            "type": "policy_updated",
+            "policy_id": policy.id
+        }
+    )
 
     # For update we return stats with zeros – votes are separate
     return PolicyResponse(
@@ -246,9 +267,8 @@ def update_policy(
         time_left="No deadline" if not policy.ends_at else "Updated",
     )
 
-
 @router.delete("/{policy_id}")
-def delete_policy(
+async def delete_policy(  # ✅ ADD async
     policy_id: int,
     db: Session = Depends(get_db),
 ):
@@ -259,15 +279,28 @@ def delete_policy(
     if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
 
+    policy_title = policy.title
     policy.is_active = False
     db.commit()
+    
+    # ✅ NEW: Send notification to users who voted on this policy
+    print(f"🔔 Notifying voters about policy deletion: {policy_title}")
+    await notify_policy_voters(
+        db=db,
+        policy_id=policy_id,
+        title="🗑️ Policy Removed",
+        body=f"{policy_title} has been removed",
+        data={
+            "type": "policy_deleted",
+            "policy_id": policy_id
+        }
+    )
 
     return {
         "success": True,
-        "message": f"Policy '{policy.title}' deleted successfully",
+        "message": f"Policy '{policy_title}' deleted successfully",
         "policy_id": policy_id,
     }
-
 
 @router.delete("/{policy_id}/permanent")
 def permanently_delete_policy(
@@ -292,3 +325,68 @@ def permanently_delete_policy(
         "message": "Policy permanently deleted",
         "policy_id": policy_id,
     }
+
+
+# ✅ NEW: Helper functions for notifications
+async def notify_all_users(db: Session, title: str, body: str, data: dict):
+    """Send notification to ALL users with FCM tokens"""
+    try:
+        users = db.query(User).filter(User.fcm_token.isnot(None)).all()
+        
+        print(f"📤 Notifying {len(users)} users...")
+        success_count = 0
+        
+        for user in users:
+            try:
+                await send_notification(
+                    fcm_token=user.fcm_token,
+                    title=title,
+                    body=body,
+                    data=data
+                )
+                success_count += 1
+            except Exception as e:
+                print(f"❌ Failed to notify {user.device_id}: {e}")
+        
+        print(f"✅ Notified {success_count}/{len(users)} users")
+        
+    except Exception as e:
+        print(f"❌ Error in notify_all_users: {e}")
+
+
+async def notify_policy_voters(db: Session, policy_id: int, title: str, body: str, data: dict):
+    """Send notification to users who voted on this policy"""
+    try:
+        # Get all votes for this policy
+        votes = db.query(Vote).filter(Vote.policy_id == policy_id).all()
+        device_ids = [vote.device_id for vote in votes]
+        
+        if not device_ids:
+            print(f"ℹ️ No voters found for policy {policy_id}")
+            return
+        
+        # Get users with these device IDs
+        users = db.query(User).filter(
+            User.device_id.in_(device_ids),
+            User.fcm_token.isnot(None)
+        ).all()
+        
+        print(f"📤 Notifying {len(users)} voters...")
+        success_count = 0
+        
+        for user in users:
+            try:
+                await send_notification(
+                    fcm_token=user.fcm_token,
+                    title=title,
+                    body=body,
+                    data=data
+                )
+                success_count += 1
+            except Exception as e:
+                print(f"❌ Failed to notify {user.device_id}: {e}")
+        
+        print(f"✅ Notified {success_count}/{len(users)} voters")
+        
+    except Exception as e:
+        print(f"❌ Error in notify_policy_voters: {e}")
