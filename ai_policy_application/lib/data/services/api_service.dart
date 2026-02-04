@@ -437,18 +437,86 @@ Future<int> getCommentCount(int policyId) async {
 
   Future<void> updateFcmToken(String deviceId, String fcmToken) async {
   try {
+    debugPrint('📱 Updating FCM token...');
+    debugPrint('   Device ID: ${deviceId.substring(0, 20)}...');
+    debugPrint('   FCM Token: ${fcmToken.substring(0, 30)}...');
+    
     final response = await dio.put(
-      '/users/me/fcm-token',
+      '/api/users/me/fcm-token',  // ✅ FIXED: Added /api prefix
       queryParameters: {
         'device_id': deviceId,
         'fcm_token': fcmToken,
       },
     );
-    debugPrint('✅ FCM token updated: ${response.data}');
-  } catch (e) {
-    debugPrint('❌ Error updating FCM token: $e');
+    
+    debugPrint('✅ FCM token updated successfully: ${response.data}');
+  } on DioException catch (e) {
+    debugPrint('❌ Error updating FCM token:');
+    debugPrint('   Status: ${e.response?.statusCode}');
+    debugPrint('   Data: ${e.response?.data}');
+    debugPrint('   Error: $e');
     rethrow;
   }
 }
+
+
+// ✅ UPDATE POLICY
+Future<Map<String, dynamic>> updatePolicy(
+  int policyId,
+  Map<String, dynamic> policyData,
+) async {
+  try {
+    final response = await dio.put(
+      '$baseUrl/api/policies/$policyId',
+      data: policyData,
+    );
+
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(response.data);
+    } else {
+      throw Exception('Failed to update policy: ${response.data}');
+    }
+  } catch (e) {
+    debugPrint('❌ Error updating policy: $e');
+    rethrow;
+  }
+}
+
+// ✅ DELETE POLICY (soft delete)
+Future<Map<String, dynamic>> deletePolicy(int policyId) async {
+  try {
+    final response = await dio.delete(
+      '$baseUrl/api/policies/$policyId',
+    );
+
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(response.data);
+    } else {
+      throw Exception('Failed to delete policy: ${response.data}');
+    }
+  } catch (e) {
+    debugPrint('❌ Error deleting policy: $e');
+    rethrow;
+  }
+}
+
+// ✅ PERMANENT DELETE (optional, for admin)
+Future<Map<String, dynamic>> permanentlyDeletePolicy(int policyId) async {
+  try {
+    final response = await dio.delete(
+      '$baseUrl/api/policies/$policyId/permanent',
+    );
+
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(response.data);
+    } else {
+      throw Exception('Failed to permanently delete policy: ${response.data}');
+    }
+  } catch (e) {
+    debugPrint('❌ Error permanently deleting policy: $e');
+    rethrow;
+  }
+}
+
 
 }

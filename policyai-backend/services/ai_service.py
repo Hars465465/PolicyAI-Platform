@@ -26,15 +26,21 @@ def generate_policy_summary(title: str, description: str, category: str) -> str:
     
     try:
         # Create prompt for policy summary
-        prompt = f"""You are a policy analyst. Generate a concise, neutral summary (40-50 words) of this policy proposal.
+        prompt = f"""You are a policy analyst. Create a clear, objective 2-3 sentence summary of this government policy.
+
 
 Policy Title: {title}
 Category: {category}
 Full Description: {description}
 
-Summary (40-50 words, neutral tone):"""
+Write a professional summary that:
+- Explains the main objective
+- Mentions key beneficiaries
+- Highlights expected impact
 
-        # Call Gemini 2.5 Flash (fastest, cheapest model)
+Summary (2-3 sentences only):"""
+
+        # Call Gemini 2.0 Flash (fastest, cheapest model)
         response = client.models.generate_content(
             model='gemini-2.5-pro',
             contents=prompt
@@ -123,7 +129,7 @@ CONS:
 
 Keep each point concise (10-15 words). Be balanced and objective."""
 
-        # Call Gemini API
+        # Call Gemini 2.0 Flash
         response = client.models.generate_content(
             model='gemini-2.5-pro',
             contents=prompt

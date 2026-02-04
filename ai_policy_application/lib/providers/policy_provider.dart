@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 import '../../models/policy.dart';
 import '../../data/services/api_service.dart';
 import '../../data/services/device_service.dart';
@@ -6,6 +7,8 @@ import '../../data/services/device_service.dart';
 
 class PolicyProvider with ChangeNotifier {
   final ApiService _api = ApiService();
+  final Dio _dio = Dio();
+  final String baseUrl = 'http://localhost:3000'; // Update with your actual base URL
   
   // Mock data as fallback
   List<Policy> _allPolicies = [
@@ -295,4 +298,63 @@ class PolicyProvider with ChangeNotifier {
     }
     notifyListeners();
   }
+
+  // ✅ UPDATE POLICY
+Future<Map<String, dynamic>> updatePolicy(
+  int policyId,
+  Map<String, dynamic> policyData,
+) async {
+  try {
+    final response = await _dio.put(
+      '$baseUrl/api/policies/$policyId',
+      data: policyData,
+    );
+
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(response.data);
+    } else {
+      throw Exception('Failed to update policy: ${response.data}');
+    }
+  } catch (e) {
+    debugPrint('❌ Error updating policy: $e');
+    rethrow;
+  }
+}
+
+// ✅ DELETE POLICY (soft delete)
+Future<Map<String, dynamic>> deletePolicy(int policyId) async {
+  try {
+    final response = await _dio.delete(
+      '$baseUrl/api/policies/$policyId',
+    );
+
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(response.data);
+    } else {
+      throw Exception('Failed to delete policy: ${response.data}');
+    }
+  } catch (e) {
+    debugPrint('❌ Error deleting policy: $e');
+    rethrow;
+  }
+}
+
+// ✅ PERMANENT DELETE (optional, for admin)
+Future<Map<String, dynamic>> permanentlyDeletePolicy(int policyId) async {
+  try {
+    final response = await _dio.delete(
+      '$baseUrl/api/policies/$policyId/permanent',
+    );
+
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(response.data);
+    } else {
+      throw Exception('Failed to permanently delete policy: ${response.data}');
+    }
+  } catch (e) {
+    debugPrint('❌ Error permanently deleting policy: $e');
+    rethrow;
+  }
+}
+
 }

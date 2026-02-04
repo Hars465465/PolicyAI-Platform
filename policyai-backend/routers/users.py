@@ -7,13 +7,17 @@ from models.vote import Vote
 from models.policy import Policy
 from pydantic import BaseModel
 
+
 router = APIRouter()
 
+
 # ========== SCHEMAS ==========
+
 
 class UserProfileResponse(BaseModel):
     user: dict
     statistics: dict
+
 
 class VotingHistoryItem(BaseModel):
     policy_id: int
@@ -22,10 +26,13 @@ class VotingHistoryItem(BaseModel):
     stance: str
     voted_at: str
 
+
 class UpdateProfileRequest(BaseModel):
     name: str
 
+
 # ========== ENDPOINTS ==========
+
 
 @router.get("/users/me", response_model=UserProfileResponse)
 def get_user_profile(device_id: str = Query(...), db: Session = Depends(get_db)):
@@ -65,6 +72,7 @@ def get_user_profile(device_id: str = Query(...), db: Session = Depends(get_db))
     }
 
 
+
 @router.get("/users/me/voting-history")
 def get_voting_history(device_id: str = Query(...), db: Session = Depends(get_db)):
     """Get complete voting history with policy details"""
@@ -95,6 +103,7 @@ def get_voting_history(device_id: str = Query(...), db: Session = Depends(get_db
     return {"votes": history, "total": len(history)}
 
 
+
 @router.put("/users/me/update")
 def update_user_profile(
     device_id: str = Query(...),
@@ -122,14 +131,19 @@ def update_user_profile(
         }
     }
 
-# fcm_token
+
+# ✅ IMPROVED FCM TOKEN ENDPOINT
 @router.put("/me/fcm-token")
 def update_fcm_token(
-    device_id: str,
-    fcm_token: str,
+    device_id: str = Query(..., description="Unique device identifier"),  # ✅ Changed to Query
+    fcm_token: str = Query(..., description="Firebase Cloud Messaging token"),  # ✅ Changed to Query
     db: Session = Depends(get_db)
 ):
     """Update or create user FCM token for push notifications"""
+    
+    print(f"📱 FCM Token Registration Request:")
+    print(f"   Device ID: {device_id[:20]}...")
+    print(f"   FCM Token: {fcm_token[:30]}...")
     
     # Find or create user
     user = db.query(User).filter(User.device_id == device_id).first()
@@ -142,18 +156,30 @@ def update_fcm_token(
             fcm_token=fcm_token
         )
         db.add(user)
-        print(f"✅ New user created: {device_id}")
+        print(f"✅ New user created with FCM token: {device_id[:20]}")
     else:
         # Update existing user's FCM token
+        old_token = user.fcm_token
         user.fcm_token = fcm_token
-        print(f"✅ FCM token updated for: {device_id}")
+        
+        if old_token != fcm_token:
+            print(f"🔄 FCM token updated for user: {device_id[:20]}")
+        else:
+            print(f"♻️ FCM token unchanged for user: {device_id[:20]}")
     
     db.commit()
     db.refresh(user)
     
+    # Verify token was saved
+    if user.fcm_token:
+        print(f"✅ FCM token saved successfully in database")
+    else:
+        print(f"❌ WARNING: FCM token is null after save!")
+    
     return {
         "success": True,
         "message": "FCM token registered successfully",
-        "user_id": user.id
+        "user_id": user.id,
+        "device_id": device_id[:20] + "...",
+        "token_length": len(fcm_token)
     }
-
