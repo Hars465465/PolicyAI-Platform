@@ -360,17 +360,23 @@ async def notify_policy_voters(db: Session, policy_id: int, title: str, body: st
     try:
         # Get all votes for this policy
         votes = db.query(Vote).filter(Vote.policy_id == policy_id).all()
-        device_ids = [vote.device_id for vote in votes]
         
-        if not device_ids:
+        if not votes:
             print(f"ℹ️ No voters found for policy {policy_id}")
             return
         
-        # Get users with these device IDs
+        # ✅ Get user_ids from votes (not device_ids)
+        user_ids = [vote.user_id for vote in votes]
+        
+        # ✅ Get users with these user_ids who have FCM tokens
         users = db.query(User).filter(
-            User.device_id.in_(device_ids),
+            User.id.in_(user_ids),
             User.fcm_token.isnot(None)
         ).all()
+        
+        if not users:
+            print(f"ℹ️ No users with FCM tokens found for policy {policy_id}")
+            return
         
         print(f"📤 Notifying {len(users)} voters...")
         success_count = 0
@@ -385,7 +391,7 @@ async def notify_policy_voters(db: Session, policy_id: int, title: str, body: st
                 )
                 success_count += 1
             except Exception as e:
-                print(f"❌ Failed to notify {user.device_id}: {e}")
+                print(f"❌ Failed to notify user {user.id}: {e}")
         
         print(f"✅ Notified {success_count}/{len(users)} voters")
         
