@@ -32,7 +32,7 @@ class _PolicyCardState extends State<PolicyCard> {
   // ✅ NEW: Load vote results from backend
   Future<void> _loadVoteResults() async {
     try {
-      final results = await _apiService.getVoteResults(int.parse(widget.policy.id));
+      final results = await _apiService.getVoteResults(int.parse(widget.policy.id.toString()));
       if (mounted) {
         setState(() {
           _voteResults = results;

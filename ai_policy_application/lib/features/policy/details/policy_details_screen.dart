@@ -6,30 +6,25 @@ import '../../../models/policy.dart';
 import '../../../providers/policy_provider.dart';
 import '../../home/widgets/comments_bottom_sheet.dart';
 
-
 class PolicyDetailsScreen extends StatefulWidget {
   final Policy policy;
-
 
   const PolicyDetailsScreen({
     super.key,
     required this.policy,
   });
 
-
   @override
   State<PolicyDetailsScreen> createState() => _PolicyDetailsScreenState();
 }
 
-
 class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     with SingleTickerProviderStateMixin {
-  String? _userVote; // 'support', 'oppose', 'neutral', or null
+  String? _userVote;
   bool _hasVoted = false;
   bool _isVoting = false;
   Map<String, dynamic>? _voteResults;
   late AnimationController _buttonAnimationController;
-
 
   @override
   void initState() {
@@ -41,28 +36,22 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     _loadVoteData();
   }
 
-
   @override
   void dispose() {
     _buttonAnimationController.dispose();
     super.dispose();
   }
 
-  // ✅ Load vote status and results
   Future<void> _loadVoteData() async {
     final provider = context.read<PolicyProvider>();
     
-    // Check if backend is available
     if (!provider.useBackend) {
       debugPrint('⚠️ Backend not available for voting');
       return;
     }
 
-    // Check if user already voted
-    final myVote = await provider.checkMyVote(widget.policy.id);
-    
-    // Get current results
-    final results = await provider.getVoteResults(widget.policy.id);
+    final myVote = await provider.checkMyVote(widget.policy.id.toString());
+    final results = await provider.getVoteResults(widget.policy.id.toString());
     
     if (mounted) {
       setState(() {
@@ -73,18 +62,17 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     }
   }
 
-  // ✅ Handle vote submission with WITHDRAWAL support
   Future<void> _handleVote(String stance) async {
     if (_isVoting) return;
 
     final provider = context.read<PolicyProvider>();
 
-    // ✅ WITHDRAW VOTE: If clicking same button again
+    // WITHDRAW VOTE
     if (_hasVoted && _userVote == stance) {
       setState(() => _isVoting = true);
 
       try {
-        await provider.withdrawVote(widget.policy.id);
+        await provider.withdrawVote(widget.policy.id.toString());
 
         if (mounted) {
           setState(() {
@@ -111,8 +99,6 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
           );
 
           await _loadVoteData();
-          
-          // ✅ Refresh home screen
           provider.fetchPoliciesFromBackend();
         }
       } catch (e) {
@@ -132,11 +118,11 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
       return;
     }
 
-    // ✅ CAST NEW VOTE or CHANGE VOTE
+    // CAST NEW VOTE
     setState(() => _isVoting = true);
 
     try {
-      await provider.voteOnPolicy(widget.policy.id, stance);
+      await provider.voteOnPolicy(widget.policy.id.toString(), stance);
 
       if (mounted) {
         setState(() {
@@ -172,8 +158,6 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
         );
 
         await _loadVoteData();
-        
-        // ✅ Refresh home screen policies
         provider.fetchPoliciesFromBackend();
       }
     } catch (e) {
@@ -190,6 +174,23 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
         setState(() => _isVoting = false);
       }
     }
+  }
+
+  // ✅ REAL DATA GETTERS
+  List<String> _getPros() {
+    return widget.policy.pros.isNotEmpty 
+        ? widget.policy.pros 
+        : [];
+  }
+
+  List<String> _getCons() {
+    return widget.policy.cons.isNotEmpty 
+        ? widget.policy.cons 
+        : [];
+  }
+
+  String? _getAISummary() {
+    return widget.policy.aiSummary;
   }
 
   String _getStanceLabel(String stance) {
@@ -231,10 +232,8 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    // ✅ Use backend results if available
     final displaySupportPct = _voteResults != null 
         ? (_voteResults!['support_percentage'] ?? widget.policy.supportPercentage)
         : widget.policy.supportPercentage;
@@ -273,7 +272,6 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
                 ),
               ),
               onPressed: () {
-                // ✅ Refresh home screen when going back
                 Navigator.pop(context, true);
               },
             ),
@@ -326,7 +324,6 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
               collapseMode: CollapseMode.pin,
             ),
           ),
-
 
           // Voting Results Chart
           SliverToBoxAdapter(
@@ -420,7 +417,6 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
             ),
           ),
 
-
           // Comments Button
           SliverToBoxAdapter(
             child: Padding(
@@ -432,7 +428,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
                     isScrollControlled: true,
                     backgroundColor: Colors.transparent,
                     builder: (context) => CommentsBottomSheet(
-                      policyId: int.parse(widget.policy.id),
+                      policyId: int.parse(widget.policy.id.toString()),
                       policyTitle: widget.policy.title,
                     ),
                   );
@@ -451,9 +447,7 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
             ),
           ),
 
-
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
 
           // Description Section
           SliverToBoxAdapter(
@@ -489,122 +483,159 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
             ),
           ),
 
-
-          // AI Summary Section
-          SliverToBoxAdapter(
-            child: Container(
-              margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppTheme.primaryPurple.withOpacity(0.1),
-                    AppTheme.secondaryBlue.withOpacity(0.1),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppTheme.primaryPurple.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              AppTheme.primaryPurple,
-                              AppTheme.secondaryBlue,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.auto_awesome,
-                          size: 20,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'AI Summary',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textDark,
-                        ),
-                      ),
+          // ✅ AI ANALYSIS SECTION - USING REAL BACKEND DATA
+          if (_getAISummary() != null || _getPros().isNotEmpty || _getCons().isNotEmpty)
+            SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppTheme.primaryPurple.withOpacity(0.1),
+                      AppTheme.secondaryBlue.withOpacity(0.1),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  _buildAISection(
-                    'Pros',
-                    Icons.check_circle_outline,
-                    AppTheme.successGreen,
-                    _getMockPros(),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppTheme.primaryPurple.withOpacity(0.3),
+                    width: 1,
                   ),
-                  const SizedBox(height: 16),
-                  _buildAISection(
-                    'Cons',
-                    Icons.warning_outlined,
-                    AppTheme.warningOrange,
-                    _getMockCons(),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildAISection(
-                    'Risks',
-                    Icons.error_outline,
-                    AppTheme.warningRed,
-                    _getMockRisks(),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Icon(
-                          Icons.account_balance_wallet_outlined,
-                          size: 20,
-                          color: AppTheme.primaryPurple,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Budget Estimate: ',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                AppTheme.primaryPurple,
+                                AppTheme.secondaryBlue,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.auto_awesome,
+                            size: 20,
+                            color: Colors.white,
                           ),
                         ),
-                        Text(
-                          _getMockBudget(),
-                          style: const TextStyle(
-                            fontSize: 14,
+                        const SizedBox(width: 12),
+                        const Text(
+                          'AI Analysis',
+                          style: TextStyle(
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryPurple,
+                            color: AppTheme.textDark,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    
+                    // AI Summary
+                    if (_getAISummary() != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.summarize_outlined,
+                                  size: 18,
+                                  color: AppTheme.primaryPurple,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Summary',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _getAISummary()!,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade700,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    
+                    // PROS
+                    if (_getPros().isNotEmpty) ...[
+                      _buildAISection(
+                        'Pros',
+                        Icons.check_circle_outline,
+                        AppTheme.successGreen,
+                        _getPros(),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    
+                    // CONS
+                    if (_getCons().isNotEmpty) ...[
+                      _buildAISection(
+                        'Cons',
+                        Icons.warning_outlined,
+                        AppTheme.warningOrange,
+                        _getCons(),
+                      ),
+                    ],
+                    
+                    // No data message
+                    if (_getAISummary() == null && _getPros().isEmpty && _getCons().isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.hourglass_empty,
+                                size: 32,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '⏳ AI analysis will be generated shortly',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade600,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
 
-
-          // Impact Section
+          // Impact Section (Optional - can be removed or kept for future use)
           SliverToBoxAdapter(
             child: Container(
               margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -625,14 +656,14 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
-                          Icons.lightbulb_outline,
+                          Icons.info_outline,
                           size: 20,
                           color: AppTheme.infoBlue,
                         ),
                       ),
                       const SizedBox(width: 12),
                       const Text(
-                        'Expected Impact',
+                        'Policy Information',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -642,21 +673,24 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildImpactItem(Icons.people_outline, 'Affects 2.5M+ citizens'),
-                  _buildImpactItem(Icons.location_on_outlined, 'Implementation in 12 states'),
-                  _buildImpactItem(Icons.calendar_today_outlined, 'Rollout starts Q2 2026'),
+                  _buildInfoItem(
+                    Icons.category_outlined, 
+                    'Category: ${widget.policy.category}'
+                  ),
+                  _buildInfoItem(
+                    Icons.access_time_outlined,
+                    'Time Left: ${widget.policy.timeLeft}',
+                  ),
                 ],
               ),
             ),
           ),
 
-
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
 
-
-      // ✅ UPDATED: Fixed Bottom Voting Buttons with WITHDRAWAL
+      // Bottom Voting Buttons
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -683,7 +717,6 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     );
   }
 
-  // ✅ Show which vote user cast (with hint to click again to withdraw)
   Widget _buildVotedIndicator() {
     final color = _getStanceColor(_userVote ?? 'neutral');
     final label = _getStanceLabel(_userVote ?? 'neutral');
@@ -722,7 +755,6 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     );
   }
 
-  // ✅ Voting buttons (highlight current vote)
   Widget _buildVotingButtons() {
     return Row(
       children: [
@@ -800,11 +832,11 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     );
   }
 
-
   Widget _buildPollChart(int supportPct, int opposePct) {
     final neutralPct = _voteResults != null 
       ? (_voteResults!['neutral_percentage'] ?? 0)
       : 100 - supportPct - opposePct;
+      
     return SizedBox(
       height: 180,
       child: Row(
@@ -865,9 +897,8 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
                 _buildLegendItem('Oppose', AppTheme.warningRed, opposePct),
                 const SizedBox(height: 16),
                 if (neutralPct > 0) ...[
-                const SizedBox(height: 12),
-                _buildLegendItem('Neutral', AppTheme.warningOrange, neutralPct),
-              ],
+                  _buildLegendItem('Neutral', AppTheme.warningOrange, neutralPct),
+                ],
               ],
             ),
           ),
@@ -875,7 +906,6 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
       ),
     );
   }
-
 
   Widget _buildLegendItem(String label, Color color, int percentage) {
     return Row(
@@ -915,7 +945,6 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
       ],
     );
   }
-
 
   Widget _buildAISection(String title, IconData icon, Color color, List<String> items) {
     return Column(
@@ -961,88 +990,26 @@ class _PolicyDetailsScreenState extends State<PolicyDetailsScreen>
     );
   }
 
-
-  Widget _buildImpactItem(IconData icon, String text) {
+  Widget _buildInfoItem(IconData icon, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           Icon(icon, size: 18, color: Colors.grey.shade600),
           const SizedBox(width: 12),
-          Text(text, style: TextStyle(fontSize: 14, color: Colors.grey.shade700)),
+          Expanded(
+            child: Text(
+              text, 
+              style: TextStyle(
+                fontSize: 14, 
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
-
-
-  List<String> _getMockPros() {
-    switch (widget.policy.category) {
-      case 'Education':
-        return [
-          'Improves digital literacy across rural and urban areas',
-          'Creates skill-based employment opportunities',
-          'Enhances educational infrastructure nationwide',
-        ];
-      case 'Healthcare':
-        return [
-          'Universal healthcare access for all citizens',
-          'Reduces out-of-pocket medical expenses',
-          'Strengthens public health infrastructure',
-        ];
-      default:
-        return [
-          'Positive economic impact expected',
-          'Benefits multiple sectors',
-          'Long-term sustainable growth',
-        ];
-    }
-  }
-
-
-  List<String> _getMockCons() {
-    switch (widget.policy.category) {
-      case 'Education':
-        return [
-          'High initial implementation cost',
-          'Requires extensive teacher training programs',
-        ];
-      case 'Healthcare':
-        return [
-          'Substantial budget allocation required',
-          'Implementation challenges in remote areas',
-        ];
-      default:
-        return [
-          'Significant budget requirement',
-          'Complex implementation logistics',
-        ];
-    }
-  }
-
-
-  List<String> _getMockRisks() {
-    return [
-      'Delays in rollout timeline',
-      'Potential cost overruns',
-      'Regional implementation gaps',
-    ];
-  }
-
-
-  String _getMockBudget() {
-    switch (widget.policy.category) {
-      case 'Education':
-        return '₹15,000 Crore';
-      case 'Healthcare':
-        return '₹25,000 Crore';
-      case 'Infrastructure':
-        return '₹50,000 Crore';
-      default:
-        return '₹10,000 Crore';
-    }
-  }
-
 
   Color _getCategoryColor() {
     switch (widget.policy.category.toLowerCase()) {

@@ -14,7 +14,7 @@ class VoteButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<VoteProvider>(
       builder: (context, voteProvider, _) {
-        final currentVote = voteProvider.getVoteForPolicy(policy.id)?.stance;
+        final currentVote = voteProvider.getVoteForPolicy(policy.id.toString())?.stance;
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -41,7 +41,7 @@ class VoteButtons extends StatelessWidget {
                     isSelected: currentVote == VoteStance.support,
                     onTap: () => _handleVote(
                       context,
-                      policy.id,
+                      policy.id.toString(),
                       VoteStance.support,
                     ),
                   ),
@@ -56,7 +56,7 @@ class VoteButtons extends StatelessWidget {
                     isSelected: currentVote == VoteStance.neutral,
                     onTap: () => _handleVote(
                       context,
-                      policy.id,
+                      policy.id.toString(),
                       VoteStance.neutral,
                     ),
                   ),
@@ -71,7 +71,7 @@ class VoteButtons extends StatelessWidget {
                     isSelected: currentVote == VoteStance.oppose,
                     onTap: () => _handleVote(
                       context,
-                      policy.id,
+                      policy.id.toString(),
                       VoteStance.oppose,
                     ),
                   ),

@@ -14,10 +14,10 @@ class ApiService {
   }
 
   // ✅ REPLACE with your actual IP from ipconfig!
-  static const String _localBaseUrl = 'http://192.168.31.135:8000';
-  static const String _productionBaseUrl = 'https://policyai-platform-production.up.railway.app';
+  // static const String _localBaseUrl = 'http://192.168.31.135:8000';
+  static const String _productionBaseUrl = 'https://policyai-platform-production-1715.up.railway.app';
   
-  static String get baseUrl => kDebugMode ? _localBaseUrl : _productionBaseUrl;
+  static String get baseUrl => _productionBaseUrl;
   
   late Dio dio;
 

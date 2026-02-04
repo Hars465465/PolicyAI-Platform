@@ -27,7 +27,7 @@ class PolicyResultsScreen extends StatelessWidget {
           // In Phase 1, we show mock aggregated data
           // In Phase 2, this will come from backend API
           final mockResults = _getMockResults();
-          final userVote = voteProvider.getVoteForPolicy(policy.id);
+          final userVote = voteProvider.getVoteForPolicy(policy.id.toString());
 
           return SingleChildScrollView(
             child: Column(
