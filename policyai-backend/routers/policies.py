@@ -10,7 +10,8 @@ from schemas.policy import PolicyResponse, PolicyCreate, PolicyWithStats
 from database import get_db
 from services.fcm_service import send_new_policy_notification
 from services.ai_service import generate_policy_summary, analyze_policy_pros_cons
-from services.notification_service import send_notification  # ✅ ADD THIS
+from services.notification_service import send_push_notification as send_notification  # ✅ CORRECT
+
 
 router = APIRouter()
 
