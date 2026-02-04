@@ -35,8 +35,7 @@ class PolicyResponse(BaseModel):
     total_votes: int
     time_left: str
     created_at: datetime
-
-
+    ai_summary: Optional[str] = None
     pros: Optional[List[str]] = None
     cons: Optional[List[str]] = None
     
