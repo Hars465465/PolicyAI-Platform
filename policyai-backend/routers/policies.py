@@ -181,3 +181,114 @@ def create_policy(policy: PolicyCreate, db: Session = Depends(get_db)) -> Policy
         total_votes=0,
         time_left="No deadline"
     )
+
+@router.put("/{policy_id}", response_model=PolicyResponse)
+def update_policy(
+    policy_id: int,
+    policy_update: PolicyCreate,
+    db: Session = Depends(get_db),
+) -> PolicyResponse:
+    """
+    Update existing policy.
+    Optionally regenerates AI summary and pros/cons (we'll keep it simple: always regenerate for now).
+    """
+    policy = db.query(Policy).filter(Policy.id == policy_id, Policy.is_active == True).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+
+    # Update basic fields
+    policy.title = policy_update.title
+    policy.description = policy_update.description
+    policy.category = policy_update.category
+
+    # Regenerate AI summary if not provided in request
+    ai_summary = policy_update.ai_summary
+    if not ai_summary:
+        print(f" 🔄 Regenerating AI summary for: {policy_update.title}")
+        ai_summary = generate_policy_summary(
+            title=policy_update.title,
+            description=policy_update.description,
+            category=policy_update.category,
+        )
+
+    # Regenerate pros/cons via AI
+    print(f" 🔄 Regenerating pros & cons for: {policy_update.title}")
+    analysis = analyze_policy_pros_cons(
+        title=policy_update.title,
+        description=policy_update.description,
+        category=policy_update.category,
+    )
+
+    policy.ai_summary = ai_summary
+    policy.pros = analysis["pros"]
+    policy.cons = analysis["cons"]
+
+    db.commit()
+    db.refresh(policy)
+
+    # For update we return stats with zeros – votes are separate
+    return PolicyResponse(
+        id=policy.id,
+        title=policy.title,
+        description=policy.description,
+        category=policy.category,
+        author_id=policy.author_id,
+        ai_summary=policy.ai_summary,
+        pros=policy.pros or [],
+        cons=policy.cons or [],
+        is_active=policy.is_active,
+        created_at=policy.created_at,
+        ends_at=policy.ends_at,
+        updated_at=getattr(policy, "updated_at", None),
+        support_percentage=0,
+        oppose_percentage=0,
+        total_votes=0,
+        time_left="No deadline" if not policy.ends_at else "Updated",
+    )
+
+
+@router.delete("/{policy_id}")
+def delete_policy(
+    policy_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Soft delete policy (mark as inactive).
+    """
+    policy = db.query(Policy).filter(Policy.id == policy_id).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+
+    policy.is_active = False
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Policy '{policy.title}' deleted successfully",
+        "policy_id": policy_id,
+    }
+
+
+@router.delete("/{policy_id}/permanent")
+def permanently_delete_policy(
+    policy_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Hard delete policy and related votes.
+    """
+    policy = db.query(Policy).filter(Policy.id == policy_id).first()
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+
+    # Delete votes first
+    db.query(Vote).filter(Vote.policy_id == policy_id).delete()
+
+    db.delete(policy)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Policy permanently deleted",
+        "policy_id": policy_id,
+    }
