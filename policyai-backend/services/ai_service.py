@@ -36,7 +36,7 @@ Summary (40-50 words, neutral tone):"""
 
         # Call Gemini 2.5 Flash (fastest, cheapest model)
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-pro',
             contents=prompt
         )
         
@@ -76,7 +76,7 @@ CONS:
 3. [Con 3]"""
 
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-pro',
             contents=prompt
         )
         
@@ -125,7 +125,7 @@ Keep each point concise (10-15 words). Be balanced and objective."""
 
         # Call Gemini API
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-pro',
             contents=prompt
         )
         
