@@ -73,7 +73,7 @@ app.include_router(policies.router, prefix="/api/policies", tags=["Policies"])
 app.include_router(votes.router, prefix="/api/policies", tags=["Votes"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(comment.router, prefix="/api/comments", tags=["Comments"])
-app.include_router(users.router, prefix="/api", tags=["Users"]) 
+app.include_router(users.router, prefix="/api/users", tags=["Users"]) 
 
 # 🔁 Withdraw/delete vote endpoint
 

@@ -123,16 +123,37 @@ def update_user_profile(
     }
 
 # fcm_token
-@router.put("/users/me/fcm-token")
-def update_fcm_token(device_id: str, fcm_token: str, db: Session = Depends(get_db)):
-    """Save user's FCM token"""
+@router.put("/me/fcm-token")
+def update_fcm_token(
+    device_id: str,
+    fcm_token: str,
+    db: Session = Depends(get_db)
+):
+    """Update or create user FCM token for push notifications"""
+    
+    # Find or create user
     user = db.query(User).filter(User.device_id == device_id).first()
     
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        # Create new user
+        user = User(
+            device_id=device_id,
+            name=f"User_{device_id[:8]}",
+            fcm_token=fcm_token
+        )
+        db.add(user)
+        print(f"✅ New user created: {device_id}")
+    else:
+        # Update existing user's FCM token
+        user.fcm_token = fcm_token
+        print(f"✅ FCM token updated for: {device_id}")
     
-    user.fcm_token = fcm_token
     db.commit()
+    db.refresh(user)
     
-    return {"message": "FCM token updated"}
+    return {
+        "success": True,
+        "message": "FCM token registered successfully",
+        "user_id": user.id
+    }
 
